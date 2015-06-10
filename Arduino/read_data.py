@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from __future__ import print_function 
+
 import os 
 import sys
 import time
@@ -22,10 +24,9 @@ trialsDict[runningTrial] = []
 mouseName = None
 
 if len(sys.argv) <= 2:
-    outfile = "%s/raw_data" % stamp
+    outfile = os.path.join(stamp, "raw_data")
 else:
     outfile = sys.argv[1]
-
 
 tty = None
 baudRate = 9600
@@ -39,20 +40,23 @@ for t in ttyoptions:
 def writeToTrialFile(line):
     global newTrialFile
     global runningTrial 
-    if "End of Trial:" in line:
+    if "end of trial:" in line.lower():
         newTrialFile = os.path.join(stamp, "Trial_%s" % runningTrial)
-        print("[INFO] Wrting trial to %s" % newTrialFile)
+        print("[INFO] Writing trial %s to %s" % (runningTrial, newTrialFile))
         with open(newTrialFile, "w") as tf:
-            tf.write("\n".join(trialsDict[runningTrial]))
-        runningTrial = line.replace("End of Trial:", "").strip()
+            tf.write("".join(trialsDict[runningTrial]))
+    elif "trial no." in line.lower():
+        runningTrial = line.lower().replace("trial no.", "").strip()
+        print("---------------------------------")
+        print("[INFO] New trial %s has started" % runningTrial)
     else:
         trialsDict[runningTrial].append(line)
     
-print("Connecting to %s" % ttyName)
+print("[INFO] Connecting to %s" % ttyName)
 with open(outfile, 'w') as f:
-    print("Writing to file %s" % outfile)
+    print("[INFO] Writing to file %s" % outfile)
     while(True):
         line = tty.readline()
-        print line.strip(' '),
+        print("\t%s" % line.strip(' '), end='')
         f.write("%s" % line)
         writeToTrialFile(line)
