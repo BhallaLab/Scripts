@@ -20,17 +20,7 @@ import pylab
 import logging
 import datetime
 
-logging.basicConfig(level=logging.DEBUG,
-    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-    datefmt='%m-%d %H:%M',
-    filename='default.log',
-    filemode='w')
-console = logging.StreamHandler()
-console.setLevel(logging.INFO)
-formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
-console.setFormatter(formatter)
 _logger = logging.getLogger('blinky')
-_logger.addHandler(console)
 
 max_length_ = 80
 current_length_ = 0
@@ -138,29 +128,10 @@ def process_video(video_file_name,  args = {}):
     cv2.destroyAllWindows()
     outfile = "%s_out.csv" % (video_file_name)
     _logger.info("Writing to %s" % outfile)
-    np.savetxt(outfile, np.array((tvec, vec)).T, delimiter=",", header = "time,area")
+    data = np.array((tvec, vec)).T
+    np.savetxt(outfile, data, delimiter=",", header = "time,area")
+    return data
 
-def main(args):
+def video2csv(args):
     fileName = args['video_file']
-    process_video(fileName, args = args)
-
-if __name__ == '__main__':
-    import argparse
-    # Argument parser.
-    description = '''description'''
-    parser = argparse.ArgumentParser(description=description)
-    class Args: pass 
-    args = Args()
-    parser.add_argument('--video-file', '-f'
-        , required = True
-        , help = 'Path of the video file'
-        )
-    parser.add_argument('--bbox', '-b'
-        , required = False
-        , nargs = '+'
-        , type = int
-        , help = 'Bounding box : topx topy width height'
-        )
-    parser.parse_args(namespace=args)
-    main(vars(args))
-
+    return process_video(fileName, args = args)

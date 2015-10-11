@@ -102,12 +102,11 @@ def find_blinks(data, plot = False, **kwargs):
     t, y = data[:,0], data[:,1]
     # Smooth out the vectors.
     yvec = np.convolve(y, window, 'same')
-    records['Smooth'] = (t, y)
+    records['smooth'] = (t, y)
     newY = 0.5*yvec.mean() - yvec
     newY = newY + np.fabs(newY)
     window = np.ones(window_size_)/(window_size_)
     yy = np.convolve(newY, window, 'same')
-
     blinks = []
     while yy.max() > 10:
         i = np.argmax(yy)
@@ -118,10 +117,8 @@ def find_blinks(data, plot = False, **kwargs):
     for i, x in sorted(blinks):
         xvec.append(t[i])
         yvec.append(x)
-    records['Computed blinks'] = (xvec, yvec, '+')
-
-    if plot:
-        plot_records(records)
+    records['blinks'] = (xvec, yvec)
+    return records
     
 
 def process_csv(csv_file):
