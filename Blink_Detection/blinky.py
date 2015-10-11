@@ -15,13 +15,20 @@ __status__           = "Development"
 
 import extract
 import webcam
-
+import pylab
+import numpy as np
 
 def main(args):
     # Extract video first
     data = webcam.video2csv(args)
-    blinks = extract.find_blinks(data)
-    print blinks
+    result = extract.find_blinks(data)
+    tBlink, wBlink = result['blinks']
+    outfile = "%s_blinks.csv" % args['video_file']
+    print("[INFO] Writing to outfile %s" % outfile)
+    np.savetxt(outfile, np.array([tBlink, wBlink]).T
+            , delimiter=","
+            , header = "seconds,blink_weight"
+            )
 
 if __name__ == '__main__':
     import argparse

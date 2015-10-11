@@ -94,7 +94,7 @@ def remove_blink(i, yy):
     yy[i] = 0.0
     return area
 
-def find_blinks(data, plot = False, **kwargs):
+def find_blinks(data, **kwargs):
     """Find location of blinks in data"""
     global window_size_
     records = OrderedDict()
