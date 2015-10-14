@@ -19,8 +19,20 @@ import time
 import pylab
 import logging
 import datetime
+import os
 
-_logger = logging.getLogger('blinky')
+import logging
+logging.basicConfig(level=logging.DEBUG,
+    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+    datefmt='%m-%d %H:%M',
+    filename='default.log',
+    filemode='w')
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
+console.setFormatter(formatter)
+_logger = logging.getLogger('blinky.webcam')
+_logger.addHandler(console)
 
 max_length_ = 80
 current_length_ = 0
@@ -60,6 +72,7 @@ def draw_stars(current, max_lim):
 
 def process_frame(frame):
     # Find edge in frame
+    s = np.mean(frame)
     edges = cv2.Canny(frame, 50, 250)
     cnts = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     cntImg = np.ones(frame.shape)
@@ -77,7 +90,7 @@ def process_frame(frame):
         res.append(cv2.contourArea(c))
 
     hullImg = np.array((1-hullImg) * 255, dtype = np.uint8)
-    return frame, hullImg, sum(res)
+    return frame, hullImg, sum(res), s
 
 def wait_for_exit_key():
     # This continue till one presses q.
@@ -127,6 +140,7 @@ def process_video(video_file_name,  args = {}):
     _logger.info("| FPS: %s" % fps)
     vec = []
     tvec = []
+    rawVec = []
     ret = False
     nFrames = 0
     while not ret:
@@ -144,11 +158,17 @@ def process_video(video_file_name,  args = {}):
         nRows, nCols = gray.shape
         (x0, y0), (x1, y1) = bbox_
         gray = gray[y0:y1,x0:x1]
-        infile, outfile, res = process_frame(gray)
+        try:
+            infile, outfile, res, s = process_frame(gray)
+        except Exception as e:
+            print("Could not process frame %s" % nFrames)
+            nFrames += 1
+            break
         nFrames += 1.0
         draw_stars(nFrames, totalFrames)
         tvec.append(nFrames*1.0/fps)
         vec.append(res)
+        rawVec.append(s)
         result = np.concatenate((infile, outfile), axis=1)
         cv2.imshow('Bound_eye', result)
         if wait_for_exit_key():
@@ -156,10 +176,13 @@ def process_video(video_file_name,  args = {}):
     cv2.destroyAllWindows()
     outfile = "%s_out.csv" % (video_file_name)
     _logger.info("Writing to %s" % outfile)
-    data = np.array((tvec, vec)).T
-    np.savetxt(outfile, data, delimiter=",", header = "time,area")
+    data = np.array((tvec, vec, rawVec)).T
+    np.savetxt(outfile, data, delimiter=",", header = "time,area,weight")
     return data
 
 def video2csv(args):
     fileName = args['video_file']
-    return process_video(fileName, args = args)
+    if os.path.exists(fileName):
+        return process_video(fileName, args = args)
+    else:
+        raise UserWarning("File %s not found" % fileName)
