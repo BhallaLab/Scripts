@@ -24,10 +24,11 @@ import webcam
 ######################################
 # Initialize animation here 
 
-data_ = None
+
+data_ = np.zeros(shape=(1,3))
 cap_ = None
 box_ = []
-fig_ = plt.figure()
+fig_ = plt.figure(figsize=(100, 75))
 fps_ = 0.0
 
 axes_ = {}
@@ -66,6 +67,8 @@ def init():
     fps_ = cap_.get(cv2.cv.CV_CAP_PROP_FPS)
     ret, fstFrame = cap_.read()
     box_ = webcam.get_bounding_box(fstFrame)
+    cv2.destroyWindow('Bound_eye')
+    cv2.destroyAllWindows()
     cv2.waitKey(1)
     cv2.destroyAllWindows()
     return lines_.values()
