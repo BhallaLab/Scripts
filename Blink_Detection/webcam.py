@@ -96,13 +96,12 @@ def onmouse(event, x, y, flags, params):
     global current_frame_, bbox_
     # Draw Rectangle
     if event == cv2.EVENT_LBUTTONDOWN:
+        bbox_ = []
         bbox_.append((x, y))
-        ix,iy = x,y
 
     elif event == cv2.EVENT_LBUTTONUP:
         bbox_.append((x, y))
-        cv2.rectangle(current_frame_, bbox_[0], (x,y), 1,2)
-        cv2.imshow('Bound_eye', current_frame_)
+        cv2.rectangle(current_frame_, bbox_[0], (x,y), 0,2)
 
 def get_bounding_box(frame):
     global current_frame_, bbox_
@@ -111,7 +110,7 @@ def get_bounding_box(frame):
     cv2.setMouseCallback('Bound_eye', onmouse)
     clone = frame.copy()
     while True:
-        cv2.imshow("Bound_eye", frame)
+        cv2.imshow("Bound_eye", current_frame_)
         key = cv2.waitKey(1) & 0xFF
         if key == ord("c"):
             current_frame_ = clone.copy()
