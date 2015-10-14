@@ -67,14 +67,14 @@ def plot_records(records):
     pylab.savefig(outfile)
 
 
-def remove_blink(i, yy, threshold = 0.0):
+def remove_blink(i, yy, threshold = 10.0):
     # Go left and right and set pixals to 0 as long as they are decreasing on
     # the left and right.
     #print("Using index: %s, %s" % (i, yy[i]))
     start = yy[i]
     left, right = [], []
     x = i+1
-    while  x < len(yy) and threshold < yy[x] <= start:
+    while  x < len(yy) and 0.1 < yy[x] <= start:
         start = yy[x]
         yy[x] = 0
         x += 1
@@ -82,7 +82,7 @@ def remove_blink(i, yy, threshold = 0.0):
 
     start = yy[i]
     x = i - 1
-    while x > 0 and threshold < yy[x] <= start:
+    while x > 0 and 0.1 < yy[x] <= start:
         start = yy[x]
         yy[x] = 0
         x -= 1
@@ -90,8 +90,11 @@ def remove_blink(i, yy, threshold = 0.0):
     yy[i] = 0.0
     w = left + right
     if len(w) == 0:
-        return 0
-    return sum(w) / len(w)
+        return False, 0
+    res = sum(w) / len(w)
+    if res < threshold:
+        return False, 0.0
+    return True, res
 
 def find_blinks(data, **kwargs):
     """Find location of blinks in data"""
@@ -109,8 +112,9 @@ def find_blinks(data, **kwargs):
     blinks = []
     while yy.max() > 10:
         i = np.argmax(yy)
-        a = remove_blink(i, yy)
-        blinks.append((i, a))
+        isBlink, a = remove_blink(i, yy)
+        if isBlink:
+            blinks.append((i, a))
 
     xvec, yvec = [], []
     for i, x in sorted(blinks):
@@ -139,17 +143,19 @@ def find_all_blinks(csv_file):
     pylab.legend()
     pylab.subplot(2, 1, 2)
 
-    yy = np.convolve(yy, np.ones(3)/3.0, 'same')
-    yy = 0.5 * (yy + np.fabs(yy))
+    win = np.ones(3) / 3.0
+    yy = np.convolve(yy, win, 'same')
+    yy = (yy + np.fabs(yy))
     pylab.plot(bT, yy, linewidth=1, alpha=0.4, label = "W - Smooth W")
     pylab.legend()
 
     # Find blink in this data.
     blinks = []
-    while yy.max() > 10:
+    while yy.max() > 10.0:
         i = np.argmax(yy)
-        a = remove_blink(i, yy, 0.1)
-        blinks.append((i, a))
+        isBlink, a = remove_blink(i, yy, 10.0)
+        if isBlink:
+            blinks.append((i, a))
 
     xvec, yvec = [], []
     for i, x in sorted(blinks):
