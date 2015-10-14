@@ -16,6 +16,7 @@ __status__           = "Development"
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
+import extract
 import pylab
 import sys
 from collections import OrderedDict
@@ -35,18 +36,32 @@ cap_ = None
 box_ = []
 fig_ = plt.figure()
 fps_ = 0.0
-ax_ = fig_.add_subplot(2,1,2)
-axv_ = fig_.add_subplot(2,1,1)
-line1_, = ax_.plot([], [], 'bo', alpha=0.4)
-line2_, = ax_.plot([], [], 'bo', alpha=0.4)
+
+axes_ = {}
+lines_ = {}
+ax1 = fig_.add_subplot(2, 1, 1)
+ax2 = ax1.twinx()
+ax3 = fig_.add_subplot(2, 1, 2)
+ax4 = ax3.twinx()
+
+axes_ = { 'raw' : ax1, 'raw_twin' : ax2, 'blink' : ax3, 'blink_twin' : ax4 }
+lines_["rawA"] = ax1.plot([], [], color='blue')[0]
+lines_["rawB"] = ax2.plot([], [], color='red')[0]
+lines_['blinkA'] = ax3.plot([], [], 's', color = 'blue')[0]
+lines_['blinkB'] = ax4.plot([], [], 'p', color = 'red')[0]
+
 time_template_ = 'Time = %.1f s'
-time_text_ = ax_.text(0.05, 0.9, '', transform=ax_.transAxes)
+time_text_ = fig_.text(0.05, 0.9, '', transform=axes_['blink'].transAxes)
 cv2.namedWindow('image')
 
-def init():
-    global data_, ax_, line1_, line2_, cap_
-    global box_, fps_
+tvec_ = []
+y1_ = []
+y2_ = []
 
+def init():
+    global data_, axes_, lines_
+    global box_, fps_
+    global cap_
     videoFile = sys.argv[1]
     cap_ = cv2.VideoCapture(videoFile)
     fps_ = cap_.get(cv2.cv.CV_CAP_PROP_FPS)
@@ -56,16 +71,28 @@ def init():
         cv2.destroyWindows('Bound_eye')
     except Exception as e:
         pass
-    ax_.set_xlim(0, int(cap_.get(cv2.cv.CV_CAP_PROP_FRAME_COUNT)/fps_))
-    ax_.set_ylim(-10, 100)
-    line1_.set_data([], [])
-    line2_.set_data([], [])
-    return line1_, line2_
+    return lines_.values()
+
+def update_axis_limits(ax, x, y):
+    xlim = ax.get_xlim()
+    if x >= xlim[1]:
+        ax.set_xlim(xlim[0], 1.5*x)
+    if x < xlim[0]:
+        ax.set_xlim(x-10.0, xlim[1])
+
+    ylims = ax.get_ylim()
+    if y >= ylims[1]:
+        ax.set_ylim(ylims[0], 1.5*y)
+    if y < ylims[0]:
+        ax.set_ylim( y-1.0, ylims[1])
 
 def animate(i):
     global data_
-    global time_text_, line_
+    global time_text_
     global box_
+    global tvec_, y1_, y2_
+    global cap_
+
     t = float(i) / fps_
     ret, img = cap_.read()
     (x0, y0), (x1, y1) = box_
@@ -75,186 +102,36 @@ def animate(i):
     cv2.imshow("image", frame)
     cv2.waitKey(1)
 
-    #axv_.imshow(frame)
     inI, outI, edge, pixal = webcam.process_frame(gray)
-    if t >= ax_.get_xlim()[1]:
-        ax_.set_xlim(0, 1.5*t)
-    ylims = ax_.get_ylim()
-    if edge >= ylims[1]:
-        ax_.set_ylim(ylims[0], 1.5*edge)
-    line1_.set_data(t, edge)
+    tvec_.append(t); y1_.append(edge); y2_.append(pixal)
+    update_axis_limits(axes_['raw'], t, edge)
+    update_axis_limits(axes_['raw_twin'], t, pixal)
+
+    lines_['rawA'].set_data(tvec_, y1_)
+    lines_['rawB'].set_data(tvec_, y2_)
+    
+    if i % 33 == 0 and i > 300:
+        data = np.array((tvec_, y1_, y2_)).T
+        tA, bA = extract.find_blinks_using_edge(data)
+        tB, bB = extract.find_blinks_using_pixals(data)
+        update_axis_limits(axes_['blink'], t, 1)
+        update_axis_limits(axes_['blink_twin'], t, 1)
+        lines_['blinkA'].set_data(tA, 0.9*np.ones(len(tA)))
+        lines_['blinkB'].set_data(tB, np.ones(len(tB)))
+
     time_text_.set_text(time_template_ % t)
-    return line1_, line2_, time_text_
+    return lines_.values(), time_text_
 
 ani_ = anim.FuncAnimation(fig_, animate
         , init_func=init
         , blit = False
-        , interval = 10
+        , interval = 1
         , repeat = False
         )
 
 plt.show()
 cap_.release()
 cv2.destroyAllWindows()
-quit()
-
-
-def plot_data(data, nplots = 4):
-    global window_size_
-    window = np.ones(window_size_) / window_size_
-    tvec, yvec = data[:,0], data[:,1]
-    pylab.subplot(nplots, 1, 1)
-    pylab.plot(tvec, yvec, label="raw data")
-    pylab.legend()
-
-    yvec = np.convolve(yvec, window, 'same')
-    pylab.subplot(nplots, 1, 2)
-    pylab.plot(tvec, yvec, label='Window size = %s' % window_size_)
-    pylab.plot([0, tvec[-1]], [0.5*np.mean(yvec)]*2, label = '0.5*Mean pupil size')
-    pylab.legend()
-
-    pylab.subplot(nplots, 1, 4)
-    # When area reduces to half of eye pupil, it should be considered.
-    newY = 0.5*yvec.mean() - yvec
-    newY = newY + np.fabs(newY)
-    window = np.ones(3*window_size_)/(3*window_size_)
-
-    yy = np.convolve(newY, window, 'same')
-    pylab.plot(tvec, yy, label='Blinks')
-
-    pylab.xlabel("Time (seconds)")
-    outfile = 'output.png'
-    print("[INFO] Writing to %s" % outfile)
-    pylab.savefig(outfile)
-
-def plot_records(records):
-    for i, k in enumerate(records):
-        pylab.subplot(len(records), 1, i+1)
-        d = records[k]
-        if len(d) < 3:
-            pylab.plot(d[0], d[1], label=str(k))
-        else:
-            pylab.plot(d[0], d[1], d[2], label=str(k))
-        pylab.legend()
-    pylab.xlabel("Time (seconds)")
-    outfile = "output.png"
-    print("[INFO] Writing to %s" % outfile)
-    pylab.savefig(outfile)
-
-
-def get_blink(i, yy, threshold = 10.0):
-    # Go left and right and set pixals to 0 as long as they are decreasing on
-    # the left and right.
-    #print("Using index: %s, %s" % (i, yy[i]))
-    start = yy[i]
-    left, right = [], []
-    x = i+1
-    while  x < len(yy) and 0.1 < yy[x] <= start:
-        start = yy[x]
-        yy[x] = 0
-        x += 1
-        left.append(start)
-
-    start = yy[i]
-    x = i - 1
-    while x > 0 and 0.1 < yy[x] <= start:
-        start = yy[x]
-        yy[x] = 0
-        x -= 1
-        right.append(start)
-    yy[i] = 0.0
-    w = left + right
-    if len(w) == 0:
-        return False, 0
-    res = sum(w) / len(w)
-    if res < threshold:
-        return False, 0.0
-    return True, res
-
-def find_blinks_using_edge(data, plot = False, **kwargs):
-    """Find location of blinks in data"""
-    global window_size_
-    records = OrderedDict()
-    window = np.ones(window_size_)/window_size_
-    t, y = data[:,0], data[:,1]
-    # Smooth out the vectors.
-    yvec = np.convolve(y, window, 'same')
-    records['smooth'] = (t, y)
-    newY = 0.5*yvec.mean() - yvec
-    newY = newY + np.fabs(newY)
-    window = np.ones(window_size_)/(window_size_)
-    yy = np.convolve(newY, window, 'same')
-    blinks = []
-    while yy.max() > 10:
-        i = np.argmax(yy)
-        isBlink, a = get_blink(i, yy)
-        if isBlink:
-            blinks.append((i, a))
-
-    xvec, yvec = [], []
-    for i, x in sorted(blinks):
-        xvec.append(t[i])
-        yvec.append(x)
-    return xvec, yvec
-
-def find_blinks_using_pixals(data, plot = False):
-    t, y, w = data[:,0], data[:,1], data[:,2]
-    # must be odd.
-    windowSizeSec = 6
-    N = windowSizeSec*32.0
-    window = np.ones(N)/N
-    smoothW = np.convolve(w, window, 'valid')
-    if plot:
-        pylab.subplot(2, 1, 1)
-        pylab.plot(t, w, linewidth=0.5, label = "W")
-
-    # Shift because of convolution.
-    x = int(N) / 2
-    bT, yy = t[x-1:-x], w[x-1:-x] - smoothW
-
-    if plot:
-        pylab.plot(bT, smoothW, linewidth=2, label = "Smooth W")
-        pylab.legend()
-        pylab.subplot(2, 1, 2)
-
-    win = np.ones(2) / 2.0
-    yy = np.convolve(yy, win, 'same')
-    yy = (yy + np.fabs(yy))
-    if plot:
-        pylab.plot(bT, yy, linewidth=1, alpha=0.4, label = "W - Smooth W")
-        pylab.legend()
-
-    # Find blink in this data.
-    blinks = []
-    while yy.max() > 10.0:
-        i = np.argmax(yy)
-        isBlink, a = get_blink(i, yy, 8.0)
-        if isBlink:
-            blinks.append((i, a))
-
-    xvec, yvec = [], []
-    for i, x in sorted(blinks):
-        xvec.append(bT[i])
-        yvec.append(x)
-    return xvec, yvec
-
-def process_csv(csv_file):
-    data = np.genfromtxt(csv_file, skiprows=1, delimiter=",")
-    d = data #[:1000,:]
-    blinkA = find_blinks_using_edge(d)
-    print("Total blink using edges: %s" % len(blinkA[0]))
-    blinkB = find_blinks_using_pixals(d)
-    print("Total blinks using pixals: %s" % len(blinkB[0]))
-    pylab.plot(blinkA[0], 1+np.zeros(len(blinkA[0])), '+', lw = 10)
-    pylab.plot(blinkB[0], 0.1+np.ones(len(blinkB[0])), '+', lw = 10)
-    pylab.legend()
-    pylab.ylim(0.6, 1.5)
-    pylab.show()
-
-
-def main():
-    csvFile = sys.argv[1]
-    process_csv(csvFile)
 
 if __name__ == '__main__':
     main()
