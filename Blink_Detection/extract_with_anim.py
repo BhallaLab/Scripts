@@ -17,7 +17,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import extract
-import pylab
 import sys
 from collections import OrderedDict
 import cv2
@@ -76,15 +75,11 @@ def init():
 def update_axis_limits(ax, x, y):
     xlim = ax.get_xlim()
     if x >= xlim[1]:
-        ax.set_xlim(xlim[0], 1.5*x)
-    if x < xlim[0]:
-        ax.set_xlim(x-10.0, xlim[1])
+        ax.set_xlim(xlim[0], x+10)
 
     ylims = ax.get_ylim()
     if y >= ylims[1]:
-        ax.set_ylim(ylims[0], 1.5*y)
-    if y < ylims[0]:
-        ax.set_ylim( y-1.0, ylims[1])
+        ax.set_ylim(ylims[0], y+20)
 
 def animate(i):
     global data_
@@ -110,10 +105,10 @@ def animate(i):
     lines_['rawA'].set_data(tvec_, y1_)
     lines_['rawB'].set_data(tvec_, y2_)
     
-    if i % 33 == 0 and i > 300:
-        data = np.array((tvec_, y1_, y2_)).T
-        tA, bA = extract.find_blinks_using_edge(data)
-        tB, bB = extract.find_blinks_using_pixals(data)
+    if i % int(fps_) == 0 and i > int(fps_)*5:
+        data_ = np.array((tvec_, y1_, y2_)).T
+        tA, bA = extract.find_blinks_using_edge(data_)
+        tB, bB = extract.find_blinks_using_pixals(data_)
         update_axis_limits(axes_['blink'], t, 1)
         update_axis_limits(axes_['blink_twin'], t, 1)
         lines_['blinkA'].set_data(tA, 0.9*np.ones(len(tA)))
@@ -122,7 +117,8 @@ def animate(i):
     time_text_.set_text(time_template_ % t)
     return lines_.values(), time_text_
 
-ani_ = anim.FuncAnimation(fig_, animate
+ani_ = anim.FuncAnimation(fig_
+        , animate
         , init_func=init
         , blit = False
         , interval = 1
@@ -133,5 +129,6 @@ plt.show()
 cap_.release()
 cv2.destroyAllWindows()
 
-if __name__ == '__main__':
-    main()
+outfile = '%s_out.csv' % sys.argv[1]
+print("[INFO] Writing to file %s" % outfile)
+np.savetxt(outfile, data_, delimiter=',' ,header="time,edge,pixal")
