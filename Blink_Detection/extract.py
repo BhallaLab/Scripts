@@ -96,7 +96,7 @@ def remove_blink(i, yy, threshold = 10.0):
         return False, 0.0
     return True, res
 
-def find_blinks(data, **kwargs):
+def find_blinks_using_edge(data, plot = False, **kwargs):
     """Find location of blinks in data"""
     global window_size_
     records = OrderedDict()
@@ -120,34 +120,34 @@ def find_blinks(data, **kwargs):
     for i, x in sorted(blinks):
         xvec.append(t[i])
         yvec.append(x)
-    records['blinks'] = (xvec, yvec)
-    return records
+    return xvec, yvec
 
-def find_all_blinks(csv_file):
-    data = np.genfromtxt(csv_file, skiprows = 1, delimiter = ",")
+def find_blinks_using_pixals(data, plot = False):
     t, y, w = data[:,0], data[:,1], data[:,2]
-
     # must be odd.
     windowSizeSec = 6
     N = windowSizeSec*32.0
     window = np.ones(N)/N
     smoothW = np.convolve(w, window, 'valid')
-    pylab.subplot(2, 1, 1)
-    pylab.plot(t, w, linewidth=0.5, label = "W")
+    if plot:
+        pylab.subplot(2, 1, 1)
+        pylab.plot(t, w, linewidth=0.5, label = "W")
 
     # Shift because of convolution.
     x = int(N) / 2
     bT, yy = t[x-1:-x], w[x-1:-x] - smoothW
 
-    pylab.plot(bT, smoothW, linewidth=2, label = "Smooth W")
-    pylab.legend()
-    pylab.subplot(2, 1, 2)
+    if plot:
+        pylab.plot(bT, smoothW, linewidth=2, label = "Smooth W")
+        pylab.legend()
+        pylab.subplot(2, 1, 2)
 
     win = np.ones(3) / 3.0
     yy = np.convolve(yy, win, 'same')
     yy = (yy + np.fabs(yy))
-    pylab.plot(bT, yy, linewidth=1, alpha=0.4, label = "W - Smooth W")
-    pylab.legend()
+    if plot:
+        pylab.plot(bT, yy, linewidth=1, alpha=0.4, label = "W - Smooth W")
+        pylab.legend()
 
     # Find blink in this data.
     blinks = []
@@ -161,22 +161,25 @@ def find_all_blinks(csv_file):
     for i, x in sorted(blinks):
         xvec.append(bT[i])
         yvec.append(x)
-    return (xvec, yvec)
-
+    return xvec, yvec
 
 def process_csv(csv_file):
     data = np.genfromtxt(csv_file, skiprows=1, delimiter=",")
     d = data #[:1000,:]
-    blinks = find_blinks(d, plot = True)
+    blinkA = find_blinks_using_edge(d)
+    blinkB = find_blinks_using_pixals(d)
+    pylab.subplot(2, 1, 1)
+    pylab.plot(blinkA[0], blinkA[1])
+    pylab.subplot(2, 1, 2)
+    pylab.plot(blinkB[0], blinkB[1])
+    print blinkA
+    print blinkB
+    #pylab.show()
+
 
 def main():
     csvFile = sys.argv[1]
-    #process_csv(csvFile)
-    t, v = find_all_blinks(csvFile)
-    pylab.subplot(2, 1, 2)
-    pylab.plot(t, v, '*')
-    pylab.show()
-
+    process_csv(csvFile)
 
 if __name__ == '__main__':
     main()

@@ -23,13 +23,13 @@ import numpy as np
 def main(args):
     # Extract video first
     data = webcam.video2csv(args)
-    result = extract.find_blinks(data)
-    tBlink, wBlink = result['blinks']
+    edgyBlinks = extract.find_blinks_using_edge(data)
+    pixalBlinks = extract.find_blinks_using_pixals(data)
     outfile = "%s_blinks.csv" % args['video_file']
     print("[INFO] Writing to outfile %s" % outfile)
-    np.savetxt(outfile, np.array([tBlink, wBlink]).T
+    np.savetxt(outfile, np.array((edgyBlinks, pixalBlinks))
             , delimiter=","
-            , header = "seconds,blink_weight"
+            , header = "seconds,edge_blinks,seconds,pixal_blinks"
             )
 
 if __name__ == '__main__':
