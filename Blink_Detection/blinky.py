@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """blinky.py: 
 
 Starting point of blinky

@@ -24,6 +24,8 @@ _logger = logging.getLogger('blinky')
 
 max_length_ = 80
 current_length_ = 0
+current_frame_ = None
+bbox_ = []
 
 def get_ellipse(cnts):
     ellipses = []
@@ -90,7 +92,35 @@ def wait_for_exit_key():
     #else:
     #    print k # else print its value
 
+def onmouse(event, x, y, flags, params):
+    global current_frame_, bbox_
+    # Draw Rectangle
+    if event == cv2.EVENT_LBUTTONDOWN:
+        bbox_.append((x, y))
+        ix,iy = x,y
+
+    elif event == cv2.EVENT_LBUTTONUP:
+        bbox_.append((x, y))
+        cv2.rectangle(current_frame_, bbox_[0], (x,y), 1,2)
+        cv2.imshow('Bound_eye', current_frame_)
+
+def get_bounding_box(frame):
+    global current_frame_, bbox_
+    current_frame_ = frame.copy()
+    cv2.namedWindow('Bound_eye')
+    cv2.setMouseCallback('Bound_eye', onmouse)
+    clone = frame.copy()
+    while True:
+        cv2.imshow("Bound_eye", frame)
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord("c"):
+            current_frame_ = clone.copy()
+        elif key == ord("q"):
+            break
+    return bbox_
+
 def process_video(video_file_name,  args = {}):
+    global current_frame_, bbox_
     cap = cv2.VideoCapture(video_file_name)
     totalFrames = cap.get(cv2.cv.CV_CAP_PROP_FRAME_COUNT)
     _logger.info("Total frames: %s" % totalFrames)
@@ -98,7 +128,12 @@ def process_video(video_file_name,  args = {}):
     _logger.info("| FPS: %s" % fps)
     vec = []
     tvec = []
+    ret = False
     nFrames = 0
+    while not ret:
+        ret, frame = cap.read()
+        nFrames += 1
+    bbox_ = get_bounding_box(frame)
     while(cap.isOpened()):
         ret, frame = cap.read()
         try:
@@ -108,21 +143,15 @@ def process_video(video_file_name,  args = {}):
             print(e)
             break
         nRows, nCols = gray.shape
-        if args.get('bbox'):
-            x0, y0, w, h = args['bbox']
-            gray = gray[y0:y0+h,x0:x0+w]
-        try:
-            infile, outfile, res = process_frame(gray)
-        except Exception as e:
-            _logger.warn("Failed to process frame %s. Stopping .." % nFrames)
-            print(e)
-            break
+        (x0, y0), (x1, y1) = bbox_
+        gray = gray[y0:y1,x0:x1]
+        infile, outfile, res = process_frame(gray)
         nFrames += 1.0
         draw_stars(nFrames, totalFrames)
         tvec.append(nFrames*1.0/fps)
         vec.append(res)
         result = np.concatenate((infile, outfile), axis=1)
-        cv2.imshow('Eye-Blink', result)
+        cv2.imshow('Bound_eye', result)
         if wait_for_exit_key():
             break
     cv2.destroyAllWindows()

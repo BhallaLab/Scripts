@@ -66,11 +66,6 @@ def plot_records(records):
     print("[INFO] Writing to %s" % outfile)
     pylab.savefig(outfile)
 
-def is_a_blink(i, tvec, yvec, yvec_diff):
-    """Check if there is a blink at the given indices """
-    print("|| Checking at %s, time = %s" % (i, tvec[i]))
-    print yvec_diff[i-10:i+10]
-    return True
 
 def remove_blink(i, yy):
     # Go left and right and set pixals to 0 as long as they are decreasing on
