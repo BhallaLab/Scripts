@@ -67,7 +67,7 @@ def plot_records(records):
     pylab.savefig(outfile)
 
 
-def remove_blink(i, yy, threshold = 10.0):
+def get_blink(i, yy, threshold = 10.0):
     # Go left and right and set pixals to 0 as long as they are decreasing on
     # the left and right.
     #print("Using index: %s, %s" % (i, yy[i]))
@@ -112,7 +112,7 @@ def find_blinks_using_edge(data, plot = False, **kwargs):
     blinks = []
     while yy.max() > 10:
         i = np.argmax(yy)
-        isBlink, a = remove_blink(i, yy)
+        isBlink, a = get_blink(i, yy)
         if isBlink:
             blinks.append((i, a))
 
@@ -142,7 +142,7 @@ def find_blinks_using_pixals(data, plot = False):
         pylab.legend()
         pylab.subplot(2, 1, 2)
 
-    win = np.ones(3) / 3.0
+    win = np.ones(2) / 2.0
     yy = np.convolve(yy, win, 'same')
     yy = (yy + np.fabs(yy))
     if plot:
@@ -153,7 +153,7 @@ def find_blinks_using_pixals(data, plot = False):
     blinks = []
     while yy.max() > 10.0:
         i = np.argmax(yy)
-        isBlink, a = remove_blink(i, yy, 10.0)
+        isBlink, a = get_blink(i, yy, 8.0)
         if isBlink:
             blinks.append((i, a))
 
@@ -167,14 +167,14 @@ def process_csv(csv_file):
     data = np.genfromtxt(csv_file, skiprows=1, delimiter=",")
     d = data #[:1000,:]
     blinkA = find_blinks_using_edge(d)
+    print("Total blink using edges: %s" % len(blinkA[0]))
     blinkB = find_blinks_using_pixals(d)
-    pylab.subplot(2, 1, 1)
-    pylab.plot(blinkA[0], blinkA[1])
-    pylab.subplot(2, 1, 2)
-    pylab.plot(blinkB[0], blinkB[1])
-    print blinkA
-    print blinkB
-    #pylab.show()
+    print("Total blinks using pixals: %s" % len(blinkB[0]))
+    pylab.plot(blinkA[0], 1+np.zeros(len(blinkA[0])), '+', lw = 10)
+    pylab.plot(blinkB[0], 0.1+np.ones(len(blinkB[0])), '+', lw = 10)
+    pylab.legend()
+    pylab.ylim(0.6, 1.5)
+    pylab.show()
 
 
 def main():
