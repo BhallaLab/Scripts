@@ -120,11 +120,10 @@ def get_blinks( csvFile ):
         , animate
         , init_func=init
         , blit = False
-        , interval = 10
         , repeat = False
         )
-    cap_.release()
-    ani_.save('result.mp4', fps = 30, extra_args=['-vcodec', 'libx264'])
+
+    ani_.save('output.mp4', fps=10 )
     plt.show( )
 
 def main():
