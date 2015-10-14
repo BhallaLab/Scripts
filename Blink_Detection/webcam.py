@@ -129,6 +129,7 @@ def get_bounding_box(frame):
             current_frame_ = clone.copy()
         elif key == ord("q"):
             break
+    cv2.waitKey(1)
     cv2.destroyWindow('Bound_eye')
     return bbox_
 

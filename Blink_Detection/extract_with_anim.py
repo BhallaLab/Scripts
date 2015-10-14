@@ -24,10 +24,11 @@ import webcam
 ######################################
 # Initialize animation here 
 
-data_ = None
+
+data_ = np.zeros(shape=(1,3))
 cap_ = None
 box_ = []
-fig_ = plt.figure()
+fig_ = plt.figure(figsize=(100, 75))
 fps_ = 0.0
 
 axes_ = {}
@@ -38,7 +39,7 @@ ax3 = fig_.add_subplot(2, 1, 2)
 ax4 = ax3.twinx()
 
 # Inset for raw data.
-fig_ax_ = fig_.add_axes([.7, .55, .2, .2], axisbg='y')
+fig_ax_ = fig_.add_axes([.8, .5, .2, .2], axisbg='y')
 
 axes_ = { 'raw' : ax1, 'raw_twin' : ax2, 'blink' : ax3, 'blink_twin' : ax4 }
 lines_["rawA"] = ax1.plot([], [], color='blue')[0]
@@ -62,6 +63,8 @@ def init():
     fps_ = cap_.get(cv2.cv.CV_CAP_PROP_FPS)
     ret, fstFrame = cap_.read()
     box_ = webcam.get_bounding_box(fstFrame)
+    cv2.destroyWindow('Bound_eye')
+    cv2.destroyAllWindows()
     cv2.waitKey(1)
     cv2.destroyAllWindows()
     return lines_.values()
@@ -120,9 +123,9 @@ def get_blinks( csvFile ):
         , interval = 10
         , repeat = False
         )
-
-    plt.show( )
     cap_.release()
+    ani_.save('result.mp4', fps = 30, extra_args=['-vcodec', 'libx264'])
+    plt.show( )
 
 def main():
     csvFile = sys.argv[1]
