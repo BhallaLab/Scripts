@@ -79,7 +79,7 @@ def update_axis_limits(ax, x, y):
 
     ylims = ax.get_ylim()
     if y >= ylims[1]:
-        ax.set_ylim(ylims[0], y+20)
+        ax.set_ylim(ylims[0], y+1)
 
 def animate(i):
     global data_
