@@ -67,27 +67,31 @@ def plot_records(records):
     pylab.savefig(outfile)
 
 
-def remove_blink(i, yy):
+def remove_blink(i, yy, threshold = 0.0):
     # Go left and right and set pixals to 0 as long as they are decreasing on
     # the left and right.
     #print("Using index: %s, %s" % (i, yy[i]))
-    area, start = yy[i], yy[i]
+    start = yy[i]
+    left, right = [], []
     x = i+1
-    while  x < len(yy) and yy[x] <= start:
+    while  x < len(yy) and threshold < yy[x] <= start:
         start = yy[x]
         yy[x] = 0
         x += 1
-        area += start
+        left.append(start)
 
     start = yy[i]
     x = i - 1
-    while x > 0 and yy[x] <= start:
+    while x > 0 and threshold < yy[x] <= start:
         start = yy[x]
         yy[x] = 0
         x -= 1
-        area += start
+        right.append(start)
     yy[i] = 0.0
-    return area
+    w = left + right
+    if len(w) == 0:
+        return 0
+    return sum(w) / len(w)
 
 def find_blinks(data, **kwargs):
     """Find location of blinks in data"""
@@ -114,7 +118,45 @@ def find_blinks(data, **kwargs):
         yvec.append(x)
     records['blinks'] = (xvec, yvec)
     return records
-    
+
+def find_all_blinks(csv_file):
+    data = np.genfromtxt(csv_file, skiprows = 1, delimiter = ",")
+    t, y, w = data[:,0], data[:,1], data[:,2]
+
+    # must be odd.
+    windowSizeSec = 6
+    N = windowSizeSec*32.0
+    window = np.ones(N)/N
+    smoothW = np.convolve(w, window, 'valid')
+    pylab.subplot(2, 1, 1)
+    pylab.plot(t, w, linewidth=0.5, label = "W")
+
+    # Shift because of convolution.
+    x = int(N) / 2
+    bT, yy = t[x-1:-x], w[x-1:-x] - smoothW
+
+    pylab.plot(bT, smoothW, linewidth=2, label = "Smooth W")
+    pylab.legend()
+    pylab.subplot(2, 1, 2)
+
+    yy = np.convolve(yy, np.ones(3)/3.0, 'same')
+    yy = 0.5 * (yy + np.fabs(yy))
+    pylab.plot(bT, yy, linewidth=1, alpha=0.4, label = "W - Smooth W")
+    pylab.legend()
+
+    # Find blink in this data.
+    blinks = []
+    while yy.max() > 10:
+        i = np.argmax(yy)
+        a = remove_blink(i, yy, 0.1)
+        blinks.append((i, a))
+
+    xvec, yvec = [], []
+    for i, x in sorted(blinks):
+        xvec.append(bT[i])
+        yvec.append(x)
+    return (xvec, yvec)
+
 
 def process_csv(csv_file):
     data = np.genfromtxt(csv_file, skiprows=1, delimiter=",")
@@ -123,7 +165,12 @@ def process_csv(csv_file):
 
 def main():
     csvFile = sys.argv[1]
-    process_csv(csvFile)
+    #process_csv(csvFile)
+    t, v = find_all_blinks(csvFile)
+    pylab.subplot(2, 1, 2)
+    pylab.plot(t, v, '*')
+    pylab.show()
+
 
 if __name__ == '__main__':
     main()
