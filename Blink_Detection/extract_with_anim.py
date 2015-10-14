@@ -28,7 +28,7 @@ import webcam
 data_ = np.zeros(shape=(1,3))
 cap_ = None
 box_ = []
-fig_ = plt.figure(figsize=(100, 75))
+fig_ = plt.figure()
 fps_ = 0.0
 
 axes_ = {}
@@ -40,8 +40,10 @@ ax4 = ax3.twinx()
 
 # Inset for raw data.
 save_video_ = False
+writer_ = None
 if save_video_:
     fig_ax_ = fig_.add_axes([.7, .55, .2, .2], axisbg='y')
+    #writer_ = anim.writers['ffmpeg'](fps = 15)
 else:
     cv2.namedWindow('image')
 
@@ -124,23 +126,25 @@ def animate(i):
 
 def get_blinks( csvFile ):
     global ani_, cap_
+    global save_video_
     ani_ = anim.FuncAnimation(fig_
         , animate
         , interval = 1
         , init_func=init
         , blit = False
-        , repeat = False
         )
+
+    if save_video_:
+        print("Writing to video file output.mp4")
+        ani_.save('output.mp4', fps=10, extra_args=['-vcodec', 'libx264'])
     plt.show( )
 
 def main():
     csvFile = sys.argv[1]
-    try:
-        get_blinks(csvFile)
-    except:
-        outfile = '%s_out.csv' % sys.argv[1]
-        print("[INFO] Writing to file %s" % outfile)
-        np.savetxt(outfile, data_, delimiter=',' ,header="time,edge,pixal")
+    get_blinks(csvFile)
+    outfile = '%s_out.csv' % sys.argv[1]
+    print("[INFO] Writing to file %s" % outfile)
+    np.savetxt(outfile, data_, delimiter=',' ,header="time,edge,pixal")
     cap_.release()
     outfile = '%s_out.csv' % sys.argv[1]
     print("[INFO] Writing to file %s" % outfile)

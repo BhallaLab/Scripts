@@ -24,13 +24,17 @@ def main(args):
     # Extract video first
     data = webcam.video2csv(args)
     edgyBlinks = extract.find_blinks_using_edge(data)
-    pixalBlinks = extract.find_blinks_using_pixals(data)
-    outfile = "%s_blinks.csv" % args['video_file']
+    outfile = "%s_blinks_using_edges.csv" % args['video_file']
     print("[INFO] Writing to outfile %s" % outfile)
-    np.savetxt(outfile, np.array((edgyBlinks, pixalBlinks))
-            , delimiter=","
-            , header = "seconds,edge_blinks,seconds,pixal_blinks"
-            )
+    np.savetxt(outfile, np.array(edgyBlinks).T, delimiter=","
+            , header = "time,blinks")
+
+    pixalBlinks = extract.find_blinks_using_pixals(data)
+    outfile = "%s_blinks_using_pixals.csv" % args['video_file']
+    print("[INFO] Writing to outfile %s" % outfile)
+    np.savetxt(outfile, np.array(pixalBlinks).T, delimiter=","
+            , header = "time,blinks")
+
 
 if __name__ == '__main__':
     import argparse
