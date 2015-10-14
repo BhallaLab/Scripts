@@ -38,7 +38,11 @@ ax3 = fig_.add_subplot(2, 1, 2)
 ax4 = ax3.twinx()
 
 # Inset for raw data.
-fig_ax_ = fig_.add_axes([.7, .55, .2, .2], axisbg='y')
+save_video_ = False
+if save_video_:
+    fig_ax_ = fig_.add_axes([.7, .55, .2, .2], axisbg='y')
+else:
+    cv2.namedWindow('image')
 
 axes_ = { 'raw' : ax1, 'raw_twin' : ax2, 'blink' : ax3, 'blink_twin' : ax4 }
 lines_["rawA"] = ax1.plot([], [], color='blue')[0]
@@ -89,7 +93,11 @@ def animate(i):
     frame = img[y0:y1,x0:x1]
     gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
 
-    fig_ax_.imshow(frame[::2,::2], interpolation='nearest', animated=True)
+    if save_video_:
+        fig_ax_.imshow(frame[::2,::2], interpolation='nearest')
+    else:
+        cv2.imshow('image', frame)
+        cv2.waitKey(1)
 
     inI, outI, edge, pixal = webcam.process_frame(gray)
     tvec_.append(t); y1_.append(edge); y2_.append(pixal)
@@ -115,14 +123,12 @@ def get_blinks( csvFile ):
     global ani_, cap_
     ani_ = anim.FuncAnimation(fig_
         , animate
+        , interval = 1
         , init_func=init
         , blit = False
         , repeat = False
         )
-
-    ani_.save('output.mp4', fps=10 )
     plt.show( )
-    cap_.release()
 
 def main():
     csvFile = sys.argv[1]
@@ -132,7 +138,7 @@ def main():
         outfile = '%s_out.csv' % sys.argv[1]
         print("[INFO] Writing to file %s" % outfile)
         np.savetxt(outfile, data_, delimiter=',' ,header="time,edge,pixal")
-
+    cap_.release()
     outfile = '%s_out.csv' % sys.argv[1]
     print("[INFO] Writing to file %s" % outfile)
     np.savetxt(outfile, data_, delimiter=',' ,header="time,edge,pixal")
