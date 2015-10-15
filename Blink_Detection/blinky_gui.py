@@ -20,6 +20,8 @@ import extract
 import sys
 import cv2
 import webcam
+import os
+import sys
 
 ######################################
 # Initialize animation here 
@@ -59,12 +61,13 @@ time_text_ = fig_.text(0.05, 0.9, '', transform=axes_['blink'].transAxes)
 tvec_ = []
 y1_ = []
 y2_ = []
+args_ = None
 
 def init():
     global axes_, lines_
     global box_, fps_
-    global cap_
-    videoFile = sys.argv[1]
+    global cap_, args_
+    videoFile = args_['video_file']
     cap_ = cv2.VideoCapture(videoFile)
     fps_ = cap_.get(cv2.cv.CV_CAP_PROP_FPS)
     ret, fstFrame = cap_.read()
@@ -114,8 +117,8 @@ def animate(i):
     
     if i % int(fps_) == 0 and i > int(fps_)*5:
         data_ = np.array((tvec_, y1_, y2_)).T
-        tA, bA = extract.find_blinks_using_edge(data_)
-        tB, bB = extract.find_blinks_using_pixals(data_)
+        tA, bA = extract.find_blinks_using_edge(data_[:,:])
+        tB, bB = extract.find_blinks_using_pixals(data_[:,:])
         update_axis_limits(axes_['blink'], t, 1)
         update_axis_limits(axes_['blink_twin'], t, 1)
         lines_['blinkA'].set_data(tA, 0.9*np.ones(len(tA)))
@@ -124,7 +127,7 @@ def animate(i):
     time_text_.set_text(time_template_ % t)
     return lines_.values(), time_text_
 
-def get_blinks( csvFile ):
+def get_blinks( ):
     global ani_, cap_
     global save_video_
     ani_ = anim.FuncAnimation(fig_
@@ -140,15 +143,36 @@ def get_blinks( csvFile ):
     plt.show( )
 
 def main():
-    csvFile = sys.argv[1]
-    get_blinks(csvFile)
-    outfile = '%s_out.csv' % sys.argv[1]
+    global data_, args_
+    vidFile = args_['video_file']
+    if not os.path.exists(vidFile):
+        print("[WARN] Given file %s does not exits" % vidFile)
+        quit()
+
+    try:
+        get_blinks()
+    except Exception as e:
+        pass
+    cap_.release()
+    outfile = '%s_out.csv' % vidFile
     print("[INFO] Writing to file %s" % outfile)
     np.savetxt(outfile, data_, delimiter=',' ,header="time,edge,pixal")
-    cap_.release()
-    outfile = '%s_out.csv' % sys.argv[1]
+    outfile = '%s_out.csv' % vidFile
     print("[INFO] Writing to file %s" % outfile)
     np.savetxt(outfile, data_, delimiter=',' ,header="time,edge,pixal")
 
 if __name__ == '__main__':
+    import argparse
+    # Argument parser.
+    description = '''description'''
+    parser = argparse.ArgumentParser(description=description)
+    class Args: pass 
+    args = Args()
+    parser.add_argument('--video-file', '-f'
+        , required = True
+        , type = str
+        , help = 'Path of the video file'
+        )
+    parser.parse_args(namespace=args)
+    args_ = vars(args)
     main()
