@@ -1,0 +1,3 @@
+[submodule "Blink_Detection"]
+	path = Blink_Detection
+	url = https://github.com/dilawar/eye-blink-detector
