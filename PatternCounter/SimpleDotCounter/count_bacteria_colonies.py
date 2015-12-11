@@ -36,8 +36,21 @@ def count( imgPath ):
     cv2.imshow('Final', img)
     cv2.waitKey(0)
 
+def search_contours( img ):
+    ret,thresh = cv2.threshold(img, img.mean()+1.0*img.std(), img.max(), 0)
+    contours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    for cnt in contours:
+        # centre, rad =  cv2.minEnclosingCircle( cnt )
+        if cv2.contourArea(cnt) > 50 and cv2.contourArea(cnt) < 2000:
+            cv2.drawContours(img, cnt, -1, 0, 2)
+    cv2.namedWindow("Contours", cv2.WINDOW_NORMAL)
+    cv2.imshow( "Contours", img )
+    cv2.waitKey( 0 )
+
+
 def search_edges_boundry( img ):
-    edges = cv2.Canny( img, 60, 110)
+    low = 30
+    edges = cv2.Canny( img, low, low+50)
     cv2.namedWindow("edges", cv2.WINDOW_NORMAL)
     cv2.imshow( "edges", edges)
     cv2.waitKey(0)
@@ -46,7 +59,8 @@ def main():
     imgPath = sys.argv[1]
     # count( imgPath )
     img = cv2.imread( imgPath, 0 )
-    search_edges_boundry( img )
+    # search_edges_boundry( img )
+    search_contours( img )
 
 if __name__ == '__main__':
     main()
