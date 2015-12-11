@@ -11,8 +11,9 @@ import datetime
 print "moose path", moose.__path__
 dataDir = '_data'
 stamp = datetime.datetime.now().isoformat()
+
 dataDir = os.path.join( dataDir, stamp )
-if os.path.exists( dataDir ):
+if not os.path.exists( dataDir ):
     os.makedirs( dataDir )
 
 
@@ -43,8 +44,6 @@ def main( runTime ):
     table1 = moose.Table2(tablepath1+'.con')
     x1 = moose.connect(table1, 'requestOut', tablepath1, 'getConc')
 
-    moose.reinit()
-
     ca.concInit = ori
     print("[INFO] Running for 4000 with Ca.conc %s " % ca.conc)
     moose.start(4000)
@@ -64,12 +63,12 @@ def main( runTime ):
     print("[INFO] Running for 2000 with Ca.conc %s " % ca.conc)
     moose.start(2000)
 
+    pylab.figure()
+    pylab.subplot(2, 1, 1)
     t = numpy.linspace(0.0, moose.element("/clock").runTime, len(table.vector)) # sec
     pylab.plot( t, table.vector, label="Ca Conc (interval- 8000s)" )
     pylab.legend()
-    pylab.savefig( os.path.join( dataDir, '%s_%s.png' % (table.name, runTime) ) )
-
-    pylab.figure()
+    pylab.subplot(2, 1, 2)
     t1 = numpy.linspace(0.0, moose.element("/clock").runTime, len(table1.vector)) # sec
     pylab.plot( t1, table1.vector, label="Protein Conc (interval- 8000s)" )
     pylab.legend()
@@ -78,7 +77,7 @@ def main( runTime ):
     print('[INFO] Saving data to csv files in %s' % dataDir)
     tabPath1 = os.path.join( dataDir, '%s_%s.csv' % (table.name, runTime))
     numpy.savetxt(tabPath1, numpy.matrix([t, table.vector]).T, newline='\n')
-    tabPath2 = os.path.join( dataDir, '%s_%s.csv' % (t1.name, runTime) )
+    tabPath2 = os.path.join( dataDir, '%s_%s.csv' % (table1.name, runTime) )
     numpy.savetxt(tabPath2, numpy.matrix([t1, table1.vector]).T, newline='\n')
 
 if __name__ == '__main__':
