@@ -109,21 +109,23 @@ def get_roi( frames, window = 5):
     # collect few frames before and after it and do the rest.
     logger.debug("Activity vector: %s" % activityVec )
     allEdges = np.zeros( fShape )
-    roi = np.zeros( fShape, dtype=np.uint8)
+    roi = np.zeros( fShape ) 
     for i in activityVec:
         low = max(0, i-window)
         high = min( fShape[0], i+window)
         bundle = frames[low:high]
         sumAll = np.zeros( fShape )
         for f in bundle:
-            e = threshold_frame( f, nstd = 3)
+            e = threshold_frame( f, nstd = 2)
             sumAll += e
         edges = get_edges( sumAll )
         save_figure( 'edges_%s.png' % i, edges, title = 'edges at index %s' % i)
-        cellImg = compute_cells( edges )
+        cellImg, ellipses = compute_cells( edges )
         save_figure( 'cell_%s.png' % i, cellImg )
+        roi += cellImg
     allEdges += edges 
     save_figure( 'all_edges.png', allEdges, title = 'All edges')
+    save_figure( 'roi.png', roi )
 
 def find_contours( img, **kwargs ):
     logger.debug("find_contours with option: %s" % kwargs)
@@ -142,22 +144,24 @@ def find_contours( img, **kwargs ):
     return contours, contourImg
 
 def compute_cells( image ):
-    # To compute the cells:
-    # 0. hull <- Compute the convex hull with loose conditions.
-    # 1. Compute the hull again of `hull`, if two hull are overlapping, we get a
-    # cell.
+    # Since we are compute the call in a collection of few images, set the
+    # contours length to high.
 
     thresholdImg = threshold_frame( image, nstd = 0 )
     contours, contourImg = find_contours(thresholdImg
             , draw = True
-            , filter = 1
+            , filter = 10
             , hull = True
             )
+    ellipses = []
     for c in contours:
         if len(c) < 5:
             continue
-        cv2.ellipse( contourImg, cv2.fitEllipse(c), 255, 2 )
-    return contourImg
+        ellipse = cv2.fitEllipse( c )
+        ellipses.append( ellipse )
+        # cv2.ellipse( contourImg, ellipse, 255, 1 )
+        cv2.fillConvexPoly( contourImg, c, 255, 1)
+    return contourImg, ellipses
 
 def process_tiff_file( tiff_file ):
     logger.info("Processing %s" % tiff_file)
