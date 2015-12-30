@@ -32,5 +32,5 @@ _logger.addHandler(console)
 
 
 # Threshold value for canny edge detector.
-low, high = 150, 200
+elow, ehigh = 150, 200 
 
