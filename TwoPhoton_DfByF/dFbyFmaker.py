@@ -61,7 +61,7 @@ def to_grayscale( img ):
 
 def get_edges( frame ):
     cannyFrame = to_grayscale( frame )
-    edges = cv2.Canny( cannyFrame, c.elow, c.ehigh)
+    edges = cv2.Canny( cannyFrame, c.elow, c.ehigh )
     return edges
 
 def get_activity_vector( frames ):
@@ -102,28 +102,29 @@ def save_figure( filename, img, **kwargs):
 
 def get_roi( frames, window = 5):
     fShape = frames[0].shape
-    activityVec = get_activity_vector( frames )
+    #activityVec = get_activity_vector( frames )
 
     # activityVec contains the indices where we see a local maxima of mean
     # activity e.g. most likely here we have a activity at its peak. Now we
     # collect few frames before and after it and do the rest.
-    logger.debug("Activity vector: %s" % activityVec )
+    # logger.debug("Activity vector: %s" % activityVec )
     allEdges = np.zeros( fShape )
     roi = np.zeros( fShape, dtype=np.uint8)
-    for i in activityVec:
-        low = max(0, i-window)
-        high = min( fShape[0], i+window)
-        bundle = frames[low:high]
-        sumAll = np.zeros( fShape )
-        for f in bundle:
-            e = threshold_frame( f, nstd = 3)
-            sumAll += e
-        edges = get_edges( sumAll )
-        save_figure( 'edges_%s.png' % i, edges, title = 'edges at index %s' % i)
-        cellImg = compute_cells( edges )
-        save_figure( 'cell_%s.png' % i, cellImg )
-    allEdges += edges 
-    save_figure( 'all_edges.png', allEdges, title = 'All edges')
+    for f in frames:
+        e = threshold_frame( f, 4 )
+        roi += e
+    contours, cntImg = find_contours( to_grayscale(roi), draw = True)
+
+    # Fit with ellipse
+    ellipse = np.zeros( fShape, dtype = np.uint8 )
+    for c in contours:
+        if len(c ) < 5:
+            continue
+        cv2.ellipse( ellipse, cv2.fitEllipse( c ), 255, 1 )
+    plt.imshow( ellipse )
+    plt.show( )
+
+
 
 def find_contours( img, **kwargs ):
     logger.debug("find_contours with option: %s" % kwargs)
