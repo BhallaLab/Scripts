@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 
-"""dFbyFmaker.py: 
-
-"""
-    
 __author__           = "Dilawar Singh"
 __copyright__        = "Copyright 2015, Dilawar Singh and NCBS Bangalore"
 __credits__          = ["NCBS Bangalore"]
@@ -71,6 +67,7 @@ def get_activity_vector( frames ):
     meanActivity = [ x.mean() for x in frames ]
     # Now get the indices where peak value occurs. 
     activity = sig.argrelextrema( np.array(meanActivity), np.greater)[0]
+    # activity = activity[::3]
     actFlie = os.path.join( save_direc_, 'activity_peak.csv')
     logging.info("Writing activity to %s" % actFlie)
     header = "frame index"
@@ -86,8 +83,8 @@ def threshold_frame( frame, nstd = None):
         nstd = 3
     low = max(0, mean + (nstd * std))
     high = int( frame.max() )
-    logging.info("Thresholding at %s + %s * %s" % (mean, nstd, std))
-    logging.info("|-  low, high = %s, %s" % (low, high))
+    logging.debug("Thresholding at %s + %s * %s" % (mean, nstd, std))
+    logging.debug("|-  low, high = %s, %s" % (low, high))
     frame = stat.threshold( frame, low, high, newval = 0)
     return to_grayscale( frame )
 
@@ -110,7 +107,7 @@ def write_ellipses( ellipses ):
             f.write('%s,%s,%s,%s,%s\n' % (x, y, major, minor, angle))
     logging.info("Done writing ellipses to %s" % outfile )
 
-def get_roi( frames, window = 5):
+def get_roi( frames, window = 15):
     fShape = frames[0].shape
     activityVec = get_activity_vector( frames )
 
@@ -130,7 +127,7 @@ def get_roi( frames, window = 5):
             e = threshold_frame( f, nstd = 2)
             sumAll += e
         edges = get_edges( sumAll )
-        save_figure( 'edges_%s.png' % i, edges, title = 'edges at index %s' % i)
+        # save_figure( 'edges_%s.png' % i, edges, title = 'edges at index %s' % i)
         cellImg, ellipses = compute_cells( edges )
         all_ellipses += ellipses
         save_figure( 'cell_%s.png' % i, cellImg )
@@ -154,26 +151,42 @@ def find_contours( img, **kwargs ):
     if kwargs.get('draw', False):
         contourImg = np.zeros( img.shape, dtype=np.uint8 )
         cv2.drawContours( contourImg, contours, -1, 255, 1)
+
     return contours, contourImg
+
+def acceptable( contour ):
+    """Various conditions under which a contour is not a cell """
+    # First fit it with an ellipse
+    el  = cv2.fitEllipse( contour )
+    axis = el[1]
+    r = axis[0]/axis[1]
+    # If the lower axis is 0.7 or more times of major axis, then aceept it.
+    if r < 0.7:
+        return False
+    return True
 
 def compute_cells( image ):
     # Since we are compute the call in a collection of few images, set the
     # contours length to high.
 
-    thresholdImg = threshold_frame( image, nstd = 0 )
+    thresholdImg = threshold_frame( image, nstd = 3 )
     contours, contourImg = find_contours(thresholdImg
             , draw = True
             , filter = 10
             , hull = True
             )
+
+    img = np.zeros( contourImg.shape, dtype = np.uint8 )
+    for c in contours:
+        if acceptable( c ):
+            cv2.fillConvexPoly( img, c, 255)
+
+    # Now fetch the ellipses.
+    contours, contourImg = find_contours( img, draw = True, hull = True )
     ellipses = []
     for c in contours:
-        if len(c) < 5:
-            continue
-        ellipse = cv2.fitEllipse( c )
-        ellipses.append( ellipse )
-        # cv2.ellipse( contourImg, ellipse, 255, 1 )
-        cv2.fillConvexPoly( contourImg, c, 255, 1)
+        if len(c) < 5: continue 
+        ellipses.append( cv2.fitEllipse( c ) )
     return contourImg, ellipses
 
 def process_tiff_file( tiff_file ):
@@ -190,7 +203,7 @@ def process_tiff_file( tiff_file ):
     except EOFError as e:
         logger.info("All frames are processed")
 
-    get_roi( frames )
+    get_roi( frames, 30 )
             
 
 def main( ):
@@ -201,7 +214,7 @@ def main( ):
 if __name__ == '__main__':
     import argparse
     # Argument parser.
-    description = '''description'''
+    description = '''TIFF to cell locator.'''
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('--file', '-f'
         , required = True
