@@ -100,6 +100,16 @@ def save_figure( filename, img, **kwargs):
     cv2.imwrite( outfile , img )
     return img
 
+def write_ellipses( ellipses ):
+    global save_direc_
+    outfile = os.path.join( save_direc_, 'bounding_ellipses.csv' )
+    with open( outfile, 'w' ) as f:
+        f.write("x,y,major,minor,rotation\n")
+        for e in ellipses:
+            (y, x), (minor, major), angle = e
+            f.write('%s,%s,%s,%s,%s\n' % (x, y, major, minor, angle))
+    logging.info("Done writing ellipses to %s" % outfile )
+
 def get_roi( frames, window = 5):
     fShape = frames[0].shape
     activityVec = get_activity_vector( frames )
@@ -110,6 +120,7 @@ def get_roi( frames, window = 5):
     logger.debug("Activity vector: %s" % activityVec )
     allEdges = np.zeros( fShape )
     roi = np.zeros( fShape ) 
+    all_ellipses = []
     for i in activityVec:
         low = max(0, i-window)
         high = min( fShape[0], i+window)
@@ -121,11 +132,13 @@ def get_roi( frames, window = 5):
         edges = get_edges( sumAll )
         save_figure( 'edges_%s.png' % i, edges, title = 'edges at index %s' % i)
         cellImg, ellipses = compute_cells( edges )
+        all_ellipses += ellipses
         save_figure( 'cell_%s.png' % i, cellImg )
         roi += cellImg
     allEdges += edges 
     save_figure( 'all_edges.png', allEdges, title = 'All edges')
     save_figure( 'roi.png', roi )
+    write_ellipses( all_ellipses )
 
 def find_contours( img, **kwargs ):
     logger.debug("find_contours with option: %s" % kwargs)
