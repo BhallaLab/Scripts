@@ -233,6 +233,13 @@ def process_tiff_file( tiff_file, bbox = None ):
     for i, r in enumerate(rois):
         vec = df_by_f( r, frames )
         mat[i,:] = vec
+
+    outfile = '%s/df_by_f.dat' % save_direc_
+    comment = 'Each column represents a ROI'
+    comment += "\ni'th row is the values of ROIs in image senquence i"
+    np.savetxt(outfile, mat.T, delimiter=',', header = comment)
+    logger.info('Wrote df/f data to %s' % outfile)
+
     plt.imshow( mat )
     plt.colorbar( orientation = 'horizontal' )
     plt.title( 'dF/F percentage]\n, %s' % tiff_file.split('/')[-1], fontsize=8 )
