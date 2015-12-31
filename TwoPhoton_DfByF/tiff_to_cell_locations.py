@@ -233,7 +233,7 @@ def process_tiff_file( tiff_file ):
         mat[i,:] = vec
     plt.imshow( mat ) # vmin = ma, vmax = mat.max(), cmap='jet')
     plt.colorbar( )
-    plt.show( )
+    plt.savefig( '%s/df_by_f.png' % save_direc_ )
 
 def main( ):
     init( )
