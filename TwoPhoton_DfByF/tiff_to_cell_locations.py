@@ -15,8 +15,6 @@ from PIL import Image
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-import cv2 
-import time
 import scipy.signal as sig
 import scipy.stats as stat
 import os
@@ -33,7 +31,7 @@ save_direc_ = None
 
 def init( ):
     global save_direc_
-    save_direc_ = os.path.join( '.', os.path.split(c.args_.file)[1])
+    save_direc_ = os.path.join( '.', '_results_%s' % os.path.split(c.args_.file)[1])
     if os.path.isdir( save_direc_ ):
         return
         for f in glob.glob( '%s/*' % save_direc_ ):
@@ -128,19 +126,18 @@ def get_rois( frames, window = 15):
         edges = get_edges( sumAll )
         # save_figure( 'edges_%s.png' % i, edges, title = 'edges at index %s' % i)
         cellImg, ellipses = compute_cells( edges )
-        save_figure( 'cell_%s.png' % i, cellImg )
+        # save_figure( 'cell_%s.png' % i, cellImg )
         roi += cellImg
         allEdges += edges 
     save_figure( 'all_edges.png', allEdges, title = 'All edges')
-    save_figure( 'roi.png', roi )
+    save_figure( 'rois.png', roi )
 
     # Get the final locations.
     cnts, cntImgs = find_contours( to_grayscale(roi), draw = True, fill = True)
     edges = get_edges( cntImgs )
-    save_figure( 'final_cell_locations.png', edges )
+    save_figure( 'cell_locations.png', edges )
     rois = [ cv2.boundingRect(c) for c in filter(lambda x : len(x) > 5, cnts) ]
     return rois
-
 
 def find_contours( img, **kwargs ):
     logger.debug("find_contours with option: %s" % kwargs)
@@ -253,9 +250,7 @@ def process_tiff_file( tiff_file, bbox = None ):
         plt.plot(row + 0.5*i, 'b')
     plt.savefig( '%s/df_by_f.png' % save_direc_ )
 
-def main( ):
-    init( )
-    tiffFile = c.args_.file
+def get_bounding_box( ):
     bbox = [ int(x) for x in c.args_.box.split(',') ]
     r1, c1, h, w = bbox
 
@@ -263,9 +258,15 @@ def main( ):
     else: r2 = r1 + h
     if w == -1: c2 = w
     else: c2 = c1 + w
+    return (r1, c1, r2, c2)
 
-    logger.info("Bouding box: %s" % str((r1, c1, r2, c2 )))
-    process_tiff_file( tiffFile, bbox = (r1,c1,r2,c2) )
+
+def main( ):
+    init( )
+    tiffFile = c.args_.file
+    bbox = get_bounding_box( )
+    logger.info("== Bounding box: %s" % str(bbox))
+    process_tiff_file( tiffFile, bbox = bbox )
 
 if __name__ == '__main__':
     import argparse
@@ -274,13 +275,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('--file', '-f'
         , required = True
-        , help = 'Tiff file to be passed'
+        , help = 'path to tiff file.'
         )
     parser.add_argument('--box', '-b'
         , required = False
         , default = "0,0,-1,-1"
-        , type = str
-        , help = 'Bounding box. row1,column1,row2,column2'
+        
+        , help = 'Bounding box  row1,column1,row2,column2 e.g 0,0,100,100'
         )
     parser.parse_args(namespace=c.args_)
     main()
