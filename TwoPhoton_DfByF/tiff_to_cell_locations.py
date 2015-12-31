@@ -209,7 +209,7 @@ def df_by_f( roi, frames ):
     yvec = np.array(yvec)
     # Compute df/ F here.
     df = yvec - yvec.mean()
-    return 100.0 * df / yvec 
+    return df / yvec 
 
 
 def process_tiff_file( tiff_file, bbox = None ):
@@ -227,6 +227,7 @@ def process_tiff_file( tiff_file, bbox = None ):
                 framedata = framedata[bbox[0]:bbox[2], bbox[1]:bbox[3]]
             frames.append( framedata )
     except EOFError as e:
+        logger.info("Total frames: %s" % i )
         logger.info("All frames are processed")
     rois = get_rois( frames, window = 30 )
     mat = np.zeros( shape = ( len(rois), len(frames) ))
@@ -240,11 +241,16 @@ def process_tiff_file( tiff_file, bbox = None ):
     np.savetxt(outfile, mat.T, delimiter=',', header = comment)
     logger.info('Wrote df/f data to %s' % outfile)
 
+    plt.subplot(2, 1, 1)
     plt.imshow( mat )
     plt.colorbar( orientation = 'horizontal' )
-    plt.title( 'dF/F percentage]\n, %s' % tiff_file.split('/')[-1], fontsize=8 )
+    plt.title( 'dF/F \n, %s' % tiff_file.split('/')[-1], fontsize=8 )
     plt.xlabel( '# Image sequence' )
     plt.ylabel( 'dF / F ' )
+    plt.subplot( 2, 1, 2) #, projection = 'polar' )
+    for i, row in enumerate(mat):
+        # plt.plot( 2 * np.pi * np.arange(0, 1, 1.0/len(row)), row + 0.5*i, 'b')
+        plt.plot(row + 0.5*i, 'b')
     plt.savefig( '%s/df_by_f.png' % save_direc_ )
 
 def main( ):
