@@ -107,7 +107,7 @@ def write_ellipses( ellipses ):
             f.write('%s,%s,%s,%s,%s\n' % (x, y, major, minor, angle))
     logging.info("Done writing ellipses to %s" % outfile )
 
-def get_roi( frames, window = 15):
+def get_rois( frames, window = 15):
     fShape = frames[0].shape
     activityVec = get_activity_vector( frames )
 
@@ -117,7 +117,6 @@ def get_roi( frames, window = 15):
     logger.debug("Activity vector: %s" % activityVec )
     allEdges = np.zeros( fShape )
     roi = np.zeros( fShape ) 
-    all_ellipses = []
     for i in activityVec:
         low = max(0, i-window)
         high = min( fShape[0], i+window)
@@ -129,17 +128,23 @@ def get_roi( frames, window = 15):
         edges = get_edges( sumAll )
         # save_figure( 'edges_%s.png' % i, edges, title = 'edges at index %s' % i)
         cellImg, ellipses = compute_cells( edges )
-        all_ellipses += ellipses
         save_figure( 'cell_%s.png' % i, cellImg )
         roi += cellImg
     allEdges += edges 
     save_figure( 'all_edges.png', allEdges, title = 'All edges')
     save_figure( 'roi.png', roi )
-    write_ellipses( all_ellipses )
+
+    # Get the final locations.
+    cnts, cntImgs = find_contours( to_grayscale(roi), draw = True, fill = True)
+    edges = get_edges( cntImgs )
+    save_figure( 'final_cell_locations.png', edges )
+    rois = [ cv2.boundingRect(c) for c in filter(lambda x : len(x) > 5, cnts) ]
+    return rois
+
 
 def find_contours( img, **kwargs ):
     logger.debug("find_contours with option: %s" % kwargs)
-    contours, h = cv2.findContours(img, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE )
+    contours, h = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE )
     if kwargs.get('hull', True):
         logger.debug("Approximating contours with hull")
         contours = [ cv2.convexHull( x ) for x in contours ]
@@ -151,6 +156,10 @@ def find_contours( img, **kwargs ):
     if kwargs.get('draw', False):
         contourImg = np.zeros( img.shape, dtype=np.uint8 )
         cv2.drawContours( contourImg, contours, -1, 255, 1)
+
+    if kwargs.get('fill', False):
+        for c in contours:
+            cv2.fillConvexPoly( contourImg, c, 255 )
 
     return contours, contourImg
 
@@ -172,7 +181,7 @@ def compute_cells( image ):
     thresholdImg = threshold_frame( image, nstd = 3 )
     contours, contourImg = find_contours(thresholdImg
             , draw = True
-            , filter = 10
+            , filter = 8
             , hull = True
             )
 
@@ -189,6 +198,21 @@ def compute_cells( image ):
         ellipses.append( cv2.fitEllipse( c ) )
     return contourImg, ellipses
 
+def df_by_f( roi, frames ):
+    logger.info( "ROI: %s" % str(roi) )
+    yvec = []
+    for f in frames:
+        x, y, h, w = roi
+        area = f[y:y+h,x:x+w]
+        yvec.append( area.mean() )
+
+    # Compute df/ F here.
+    df = np.diff( yvec )
+    f = yvec[1:]
+    assert len(df) == len(f)
+    return np.array( 100 * df / f )
+
+
 def process_tiff_file( tiff_file ):
     logger.info("Processing %s" % tiff_file)
     tiff = Image.open( tiff_file )
@@ -202,9 +226,14 @@ def process_tiff_file( tiff_file ):
             frames.append( framedata )
     except EOFError as e:
         logger.info("All frames are processed")
-
-    get_roi( frames, 30 )
-            
+    rois = get_rois( frames, window = 30 )
+    mat = np.zeros( shape = ( len(rois), len(frames) - 1 ))
+    for i, r in enumerate(rois):
+        vec = df_by_f( r, frames )
+        mat[i,:] = vec
+    plt.imshow( mat ) # vmin = ma, vmax = mat.max(), cmap='jet')
+    plt.colorbar( )
+    plt.show( )
 
 def main( ):
     init( )
