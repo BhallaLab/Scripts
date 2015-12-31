@@ -214,6 +214,7 @@ def df_by_f( roi, frames ):
 
 
 def process_tiff_file( tiff_file ):
+    global save_direc_
     logger.info("Processing %s" % tiff_file)
     tiff = Image.open( tiff_file )
     frames = []
@@ -233,7 +234,11 @@ def process_tiff_file( tiff_file ):
         mat[i,:] = vec
     plt.imshow( mat ) # vmin = ma, vmax = mat.max(), cmap='jet')
     plt.colorbar( )
+    plt.title( 'dF/F \%, %s' % tiff_file )
+    plt.xlabel( '# Image sequence' )
+    plt.ylabel( 'dF / F ' )
     plt.savefig( '%s/df_by_f.png' % save_direc_ )
+
 
 def main( ):
     init( )
