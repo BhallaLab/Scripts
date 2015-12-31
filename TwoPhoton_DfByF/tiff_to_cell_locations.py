@@ -130,7 +130,7 @@ def get_rois( frames, window = 15):
         cellImg, ellipses = compute_cells( edges )
         save_figure( 'cell_%s.png' % i, cellImg )
         roi += cellImg
-    allEdges += edges 
+        allEdges += edges 
     save_figure( 'all_edges.png', allEdges, title = 'All edges')
     save_figure( 'roi.png', roi )
 
@@ -206,14 +206,13 @@ def df_by_f( roi, frames ):
         area = f[y:y+h,x:x+w]
         yvec.append( area.mean() )
 
+    yvec = np.array(yvec)
     # Compute df/ F here.
-    df = np.diff( yvec )
-    f = yvec[1:]
-    assert len(df) == len(f)
-    return np.array( 100 * df / f )
+    df = yvec - yvec.mean()
+    return 100.0 * df / yvec 
 
 
-def process_tiff_file( tiff_file ):
+def process_tiff_file( tiff_file, bbox = None ):
     global save_direc_
     logger.info("Processing %s" % tiff_file)
     tiff = Image.open( tiff_file )
@@ -224,26 +223,36 @@ def process_tiff_file( tiff_file ):
             i += 1
             tiff.seek( tiff.tell() + 1 )
             framedata = get_frame_data( tiff )
+            if bbox:
+                framedata = framedata[bbox[0]:bbox[2], bbox[1]:bbox[3]]
             frames.append( framedata )
     except EOFError as e:
         logger.info("All frames are processed")
     rois = get_rois( frames, window = 30 )
-    mat = np.zeros( shape = ( len(rois), len(frames) - 1 ))
+    mat = np.zeros( shape = ( len(rois), len(frames) ))
     for i, r in enumerate(rois):
         vec = df_by_f( r, frames )
         mat[i,:] = vec
-    plt.imshow( mat ) # vmin = ma, vmax = mat.max(), cmap='jet')
-    plt.colorbar( )
+    plt.imshow( mat )
+    plt.colorbar( orientation = 'horizontal' )
     plt.title( 'dF/F percentage]\n, %s' % tiff_file.split('/')[-1], fontsize=8 )
     plt.xlabel( '# Image sequence' )
     plt.ylabel( 'dF / F ' )
     plt.savefig( '%s/df_by_f.png' % save_direc_ )
 
-
 def main( ):
     init( )
     tiffFile = c.args_.file
-    process_tiff_file( tiffFile )
+    bbox = [ int(x) for x in c.args_.box.split(',') ]
+    r1, c1, h, w = bbox
+
+    if h == -1: r2 = h
+    else: r2 = r1 + h
+    if w == -1: c2 = w
+    else: c2 = c1 + w
+
+    logger.info("Bouding box: %s" % str((r1, c1, r2, c2 )))
+    process_tiff_file( tiffFile, bbox = (r1,c1,r2,c2) )
 
 if __name__ == '__main__':
     import argparse
@@ -258,7 +267,7 @@ if __name__ == '__main__':
         , required = False
         , default = "0,0,-1,-1"
         , type = str
-        , help = 'Bounding box.'
+        , help = 'Bounding box. row1,column1,row2,column2'
         )
     parser.parse_args(namespace=c.args_)
     main()
