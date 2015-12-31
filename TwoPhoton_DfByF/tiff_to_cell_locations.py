@@ -20,6 +20,7 @@ import scipy.stats as stat
 import os
 import sys
 import glob
+import cv2
 
 
 logger = logging.getLogger('')
