@@ -234,7 +234,7 @@ def process_tiff_file( tiff_file ):
         mat[i,:] = vec
     plt.imshow( mat ) # vmin = ma, vmax = mat.max(), cmap='jet')
     plt.colorbar( )
-    plt.title( 'dF/F percentage]\n, %s' % tiff_file.split('/')[-1], fontsize=8t )
+    plt.title( 'dF/F percentage]\n, %s' % tiff_file.split('/')[-1], fontsize=8 )
     plt.xlabel( '# Image sequence' )
     plt.ylabel( 'dF / F ' )
     plt.savefig( '%s/df_by_f.png' % save_direc_ )
