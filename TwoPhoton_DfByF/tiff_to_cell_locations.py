@@ -22,11 +22,8 @@ import sys
 import glob
 import cv2
 
-
 logger = logging.getLogger('')
-
-#raw_ = cv2.namedWindow( 'raw' )
-#edge = cv2.namedWindow( 'edge' )
+images_ = {}
 
 save_direc_ = None
 
@@ -90,6 +87,7 @@ def threshold_frame( frame, nstd = None):
 def save_figure( filename, img, **kwargs):
     """Store a given image to filename """
     global save_direc_ 
+    global images_
     img = to_grayscale( img )
     outfile = os.path.join( save_direc_, filename )
     logging.info( 'Saving image to %s ' % outfile )
@@ -130,15 +128,21 @@ def get_rois( frames, window = 15):
         # save_figure( 'cell_%s.png' % i, cellImg )
         roi += cellImg
         allEdges += edges 
+
+    images_['all_edges'] = allEdges
+    images_['rois'] = to_grayscale(roi)
+
     save_figure( 'all_edges.png', allEdges, title = 'All edges')
     save_figure( 'rois.png', roi )
 
     # Get the final locations.
     cnts, cntImgs = find_contours( to_grayscale(roi), draw = True, fill = True)
     edges = get_edges( cntImgs )
-    save_figure( 'cell_locations.png', edges )
-    rois = [ cv2.boundingRect(c) for c in filter(lambda x : len(x) > 5, cnts) ]
-    return rois
+    images_['cell_clusters'] = edges
+    save_figure( 'cell_clusters.png', edges )
+
+    bounds = [ cv2.boundingRect(c) for c in filter(lambda x : len(x) > 5, cnts) ]
+    return bounds
 
 def find_contours( img, **kwargs ):
     logger.debug("find_contours with option: %s" % kwargs)
@@ -200,18 +204,34 @@ def df_by_f( roi, frames ):
     logger.info( "ROI: %s" % str(roi) )
     yvec = []
     for f in frames:
-        x, y, h, w = roi
-        area = f[y:y+h,x:x+w]
+        col, row, w, h = roi
+        area = f[row:row+h,col:col+w]
         yvec.append( area.mean() )
 
-    yvec = np.array(yvec)
-    # Compute df/ F here.
+    yvec = np.array(yvec, dtype=np.float)
     df = yvec - yvec.mean()
-    return df / yvec 
+    return np.divide(100 * df, yvec) 
 
+def df_by_f_data( rois, frames ):
+    global save_direc_
+
+    dfmat = np.zeros( shape = ( len(rois), len(frames) ))
+    for i, r in enumerate(rois):
+        vec = df_by_f( r, frames )
+        dfmat[i,:] = vec
+    
+    outfile = '%s/df_by_f.dat' % save_direc_
+    comment = 'Each column represents a ROI'
+    comment += "\ni'th row is the values of ROIs in image senquence i"
+    np.savetxt(outfile, dfmat.T, delimiter=',', header = comment)
+    save_figure( 'df_by_f.png', dfmat)
+    logger.info('Wrote df/f data to %s' % outfile)
+    return dfmat
 
 def process_tiff_file( tiff_file, bbox = None ):
     global save_direc_
+    global images_
+
     logger.info("Processing %s" % tiff_file)
     tiff = Image.open( tiff_file )
     frames = []
@@ -227,29 +247,49 @@ def process_tiff_file( tiff_file, bbox = None ):
     except EOFError as e:
         logger.info("Total frames: %s" % i )
         logger.info("All frames are processed")
-    rois = get_rois( frames, window = 30 )
-    mat = np.zeros( shape = ( len(rois), len(frames) ))
-    for i, r in enumerate(rois):
-        vec = df_by_f( r, frames )
-        mat[i,:] = vec
 
-    outfile = '%s/df_by_f.dat' % save_direc_
-    comment = 'Each column represents a ROI'
-    comment += "\ni'th row is the values of ROIs in image senquence i"
-    np.savetxt(outfile, mat.T, delimiter=',', header = comment)
-    logger.info('Wrote df/f data to %s' % outfile)
+    # get the summary of all activity
+    summary = np.zeros( shape = frames[0].shape )
+    for f in frames: summary += f
+    images_['summary'] = to_grayscale( summary )
+    
+    rectRois = get_rois( frames, window = 30 )
+    dfmat = df_by_f_data( rectRois, frames )
 
-    plt.subplot(2, 1, 1)
-    plt.imshow( mat )
-    plt.colorbar( orientation = 'horizontal' )
-    plt.title( 'dF/F \n, %s' % tiff_file.split('/')[-1], fontsize=8 )
-    plt.xlabel( '# Image sequence' )
-    plt.ylabel( 'dF / F ' )
-    plt.subplot( 2, 1, 2) #, projection = 'polar' )
-    for i, row in enumerate(mat):
-        # plt.plot( 2 * np.pi * np.arange(0, 1, 1.0/len(row)), row + 0.5*i, 'b')
-        plt.plot(row + 0.5*i, 'b')
-    plt.savefig( '%s/df_by_f.png' % save_direc_ )
+    images_['df_by_f'] = dfmat
+
+    plot_images( outfile = '%s_result.png' % tiff_file )
+
+def plot_images( outfile ):
+    global images_
+
+    fig, axes = plt.subplots(3, 2)
+
+    ax = plt.subplot(3, 2, 1)
+    ax.imshow( images_['summary'] )
+    ax.set_title( "Summary of activity in cell" )
+
+    ax = plt.subplot(3, 2, 2)
+    ax.imshow(  images_['rois'] )
+    ax.set_title( 'Computed ROIs' )
+
+    ax = plt.subplot(3, 2, 3)
+    ax.imshow( 0.5*images_['summary'] + images_['cell_clusters'] )
+    ax.set_title( 'Computed cell clusters from ROI.' )
+
+    ax = plt.subplot(3, 2, 4)
+    ax.imshow( np.zeros( shape = images_['summary'].shape ))
+    ax.set_title('TODO: Merge ROIs to find unique')
+
+    ax = plt.subplot( 3, 1, 3, frameon=False ) #, projection = 'polar' )
+    im = ax.imshow( to_grayscale(images_['df_by_f']) )
+    ax.set_title( 'df/F in cluster. total %s' % images_['df_by_f'].shape[0])
+    fig.colorbar( im, orientation = 'horizontal' )
+
+    plt.tight_layout()
+    # plt.show( )
+    logger.info('Saved results to %s' % outfile)
+    plt.savefig( outfile )
 
 def get_bounding_box( ):
     bbox = [ int(x) for x in c.args_.box.split(',') ]
@@ -281,8 +321,13 @@ if __name__ == '__main__':
     parser.add_argument('--box', '-b'
         , required = False
         , default = "0,0,-1,-1"
-        
         , help = 'Bounding box  row1,column1,row2,column2 e.g 0,0,100,100'
         )
+    parser.add_argument('--outfile', '-o'
+            , required = False
+            , default = None
+            , help = 'result file (image)' 
+            )
     parser.parse_args(namespace=c.args_)
+    c.args_.outfile = c.args_.outfile or '%s_out.png' % c.args_.file
     main()
