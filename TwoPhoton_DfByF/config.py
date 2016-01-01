@@ -35,9 +35,13 @@ _logger.addHandler(console)
 elow, ehigh = 150, 200 
 
 # Min number of points in contours. Must be more than 5.
-min_points_in_contours = 5
+min_points_in_contours = 4
 
 # Time averaging over frames. Increase this number for motion correction. Larger
 # values will give cleaner ROIs but also reduce their numbers.
 n_frames = 30
 
+# Maximum area of neuron in um^2. This is used to reject contours. Upper limit
+# is 20 um diameter (312 um^2). For toime being, I am using 200 um as upper
+# limit on neuron area.
+max_neuron_area = 200 #314

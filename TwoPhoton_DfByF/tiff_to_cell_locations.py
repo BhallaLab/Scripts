@@ -24,8 +24,10 @@ import datetime
 import cv2
 
 logger = logging.getLogger('')
+shape_ = None
 images_ = {}
 save_direc_ = None
+accepted_contours_ = []
 
 def init( ):
     global save_direc_
@@ -84,7 +86,7 @@ def threshold_frame( frame, nstd = None):
     frame = stat.threshold( frame, low, high, newval = 0)
     return to_grayscale( frame )
 
-def save_figure( filename, img, **kwargs):
+def save_image( filename, img, **kwargs):
     """Store a given image to filename """
     global save_direc_ 
     global images_
@@ -105,7 +107,8 @@ def write_ellipses( ellipses ):
     logging.info("Done writing ellipses to %s" % outfile )
 
 def get_rois( frames, window):
-    fShape = frames[0].shape
+    global shape_
+    shape_ = frames[0].shape
     activityVec = get_activity_vector( frames )
     
     images_['activity'] = np.array( activityVec )
@@ -114,37 +117,37 @@ def get_rois( frames, window):
     # activity e.g. most likely here we have a activity at its peak. Now we
     # collect few frames before and after it and do the rest.
     logger.debug("Activity vector: %s" % activityVec )
-    allEdges = np.zeros( fShape )
-    roi = np.zeros( fShape ) 
+    allEdges = np.zeros( shape_ )
+    roi = np.zeros( shape_ ) 
     for i in activityVec:
         low = max(0, i-window)
-        high = min( fShape[0], i+window)
+        high = min( shape_[0], i+window)
         bundle = frames[low:high]
-        sumAll = np.zeros( fShape )
+        sumAll = np.zeros( shape_ )
         for f in bundle:
             e = threshold_frame( f, nstd = 2)
             sumAll += e
         edges = get_edges( sumAll )
-        save_figure( 'edges_%s.png' % i, edges, title = 'edges at index %s' % i)
+        # save_image( 'edges_%s.png' % i, edges, title = 'edges at index %s' % i)
         cellImg, ellipses = compute_cells( edges )
-        save_figure( 'cell_%s.png' % i, cellImg )
+        # save_image( 'cell_%s.png' % i, cellImg )
         roi += cellImg
         allEdges += edges 
 
     images_['all_edges'] = allEdges
     images_['rois'] = to_grayscale(roi)
 
-    save_figure( 'all_edges.png', allEdges, title = 'All edges')
-    save_figure( 'rois.png', roi )
+    save_image( 'all_edges.png', allEdges, title = 'All edges')
+    save_image( 'rois.png', roi )
 
     # Get the final locations.
     cnts, cntImgs = find_contours( to_grayscale(roi), draw = True, fill = True)
     edges = get_edges( cntImgs )
     images_['cell_clusters'] = edges
-    save_figure( 'cell_clusters.png', edges )
+    save_image( 'cell_clusters.png', edges )
 
     bounds = [ cv2.boundingRect(c) for c in filter(lambda x : len(x) > 5, cnts) ]
-    rectimg = np.zeros( fShape )
+    rectimg = np.zeros( shape_ )
     for b in bounds:
         x, y, w, h = b
         cv2.rectangle( rectimg, (x, y), (x+h,y+w) , 255, 2)
@@ -153,7 +156,14 @@ def get_rois( frames, window):
 
 def find_contours( img, **kwargs ):
     logger.debug("find_contours with option: %s" % kwargs)
-    contours, h = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE )
+    # Just return external points of contours, and apply Ten-Chin chain
+    # approximation algorithm. 
+    
+    contours, h = cv2.findContours(img
+            , cv2.RETR_LIST              # No Homo Hierarichus!
+            , cv2.CHAIN_APPROX_TC89_KCOS # Apply Tin-Chen algo to return
+                                         # dominant point of curve.
+            )
     if kwargs.get('hull', True):
         logger.debug("Approximating contours with hull")
         contours = [ cv2.convexHull( x ) for x in contours ]
@@ -174,13 +184,30 @@ def find_contours( img, **kwargs ):
 
 def acceptable( contour ):
     """Various conditions under which a contour is not a cell """
+
+    global accepted_contours_
     # First fit it with an ellipse
+    if len(contour) < 5:
+        return False
+
     el  = cv2.fitEllipse( contour )
     axis = el[1]
     r = axis[0]/axis[1]
+    area = cv2.contourArea( contour ) * config.args_.pixal_size
+    if area > config.max_neuron_area:
+        logger.debug(
+                "Rejected contour %s because of its area=%s" % (contour, area)
+            )
+        return False
+
     # If the lower axis is 0.7 or more times of major axis, then aceept it.
     if r < 0.7:
+        msg = "Contour %s is rejected because " % contour
+        msg += "axis ration (%s) if too skewed" % r
+        logger.debug( msg )
         return False
+
+    accepted_contours_.append( contour )
     return True
 
 def compute_cells( image ):
@@ -232,9 +259,32 @@ def df_by_f_data( rois, frames ):
     comment = 'Each column represents a ROI'
     comment += "\ni'th row is the values of ROIs in image senquence i"
     np.savetxt(outfile, dfmat.T, delimiter=',', header = comment)
-    # save_figure( 'df_by_f.png', dfmat)
+    # save_image( 'df_by_f.png', dfmat)
     logger.info('Wrote df/f data to %s' % outfile)
     return dfmat
+
+def merge_or_reject_rectangle( rects ):
+    return rects
+
+def get_roi_containing_minimum_cells( ):
+    global images_
+    global accepted_contours_
+    global shape_
+
+    neuronImg = np.zeros( shape = shape_ )
+    rects = []
+    for contour in accepted_contours_:
+        rects.append(cv2.boundingRect( contour ))
+
+    # Now we need reject some of these rectangles.
+    rects = merge_or_reject_rectangle( rects )
+
+    for b in rects:
+        x, y, w, h = b
+        cv2.rectangle( neuronImg, (x, y), (x+h,y+w) , 255, 2)
+    
+    images_['neurons'] = neuronImg
+    return rects
 
 def process_tiff_file( tiff_file, bbox = None ):
     global save_direc_
@@ -260,9 +310,14 @@ def process_tiff_file( tiff_file, bbox = None ):
     summary = np.zeros( shape = frames[0].shape )
     for f in frames: summary += f
     images_['summary'] = to_grayscale( summary )
-    
-    rectRois = get_rois( frames, window = config.n_frames)
-    dfmat = df_by_f_data( rectRois, frames )
+
+    get_rois( frames, window = config.n_frames)
+
+    # Here we use the collected rois which are acceptable as cells and filter
+    # out overlapping contours
+    boxes = get_roi_containing_minimum_cells( )
+
+    dfmat = df_by_f_data( boxes, frames )
     images_['df_by_f'] = dfmat
 
 def plot_results( ):
@@ -281,7 +336,7 @@ def plot_results( ):
     ax.set_title( 'Clusters for df/F', fontsize = 10 )
 
     ax = plt.subplot(3, 2, 4)
-    ax.imshow( np.zeros( shape = images_['summary'].shape ))
+    ax.imshow( images_['neurons'] )
     ax.set_title('TODO: maximum(Non-overlapping ROIs)', fontsize = 10)
 
     ax = plt.subplot( 3, 1, 3, frameon=False ) 
@@ -292,8 +347,16 @@ def plot_results( ):
     plt.colorbar( im, orientation = 'horizontal' )
 
     stamp = datetime.datetime.now().isoformat()
-    plt.suptitle( '%s, %s' % (config.args_.file, stamp), fontsize = 8 )
 
+    txt = "%s" % config.args_.file.split('/')[-1]
+    txt += ' @ %s' % stamp
+    txt += ', 1 px = %s micro-meter' % config.args_.pixal_size
+    plt.suptitle(txt
+            , fontsize = 8
+            , horizontalalignment = 'left'
+            , verticalalignment = 'bottom' 
+            )
+    plt.tight_layout( 1.5 )
     logger.info('Saved results to %s' % config.args_.outfile)
     plt.savefig( config.args_.outfile )
 
@@ -318,7 +381,7 @@ def main( ):
 if __name__ == '__main__':
     import argparse
     # Argument parser.
-    description = '''TIFF to cell locator.'''
+    description = '''What it does? README.md file or Ask dilawars@ncbs.res.in'''
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('--file', '-f'
         , required = True
@@ -330,11 +393,17 @@ if __name__ == '__main__':
         , help = 'Bounding box  row1,column1,row2,column2 e.g 0,0,100,100'
         )
     parser.add_argument('--outfile', '-o'
-            , required = False
-            , default = ""
-            , type = str
-            , help = 'result file (image)' 
-            )
+        , required = False
+        , default = ""
+        , type = str
+        , help = 'result file (image)' 
+        )
+    parser.add_argument('--pixal_size', '-px'
+        , required = True
+        , type = float
+        , help = 'Pixal size in micro meter'
+        )
+
     parser.parse_args(namespace=config.args_)
     config.args_.outfile = config.args_.outfile or ('%s_out.png' % config.args_.file)
     main()
