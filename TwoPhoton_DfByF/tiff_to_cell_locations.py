@@ -104,7 +104,7 @@ def write_ellipses( ellipses ):
             f.write('%s,%s,%s,%s,%s\n' % (x, y, major, minor, angle))
     logging.info("Done writing ellipses to %s" % outfile )
 
-def get_rois( frames, window = 15):
+def get_rois( frames, window):
     fShape = frames[0].shape
     activityVec = get_activity_vector( frames )
     
@@ -125,25 +125,30 @@ def get_rois( frames, window = 15):
             e = threshold_frame( f, nstd = 2)
             sumAll += e
         edges = get_edges( sumAll )
-        # save_figure( 'edges_%s.png' % i, edges, title = 'edges at index %s' % i)
+        save_figure( 'edges_%s.png' % i, edges, title = 'edges at index %s' % i)
         cellImg, ellipses = compute_cells( edges )
-        # save_figure( 'cell_%s.png' % i, cellImg )
+        save_figure( 'cell_%s.png' % i, cellImg )
         roi += cellImg
         allEdges += edges 
 
     images_['all_edges'] = allEdges
     images_['rois'] = to_grayscale(roi)
 
-    # save_figure( 'all_edges.png', allEdges, title = 'All edges')
-    # save_figure( 'rois.png', roi )
+    save_figure( 'all_edges.png', allEdges, title = 'All edges')
+    save_figure( 'rois.png', roi )
 
     # Get the final locations.
     cnts, cntImgs = find_contours( to_grayscale(roi), draw = True, fill = True)
     edges = get_edges( cntImgs )
     images_['cell_clusters'] = edges
-    # save_figure( 'cell_clusters.png', edges )
+    save_figure( 'cell_clusters.png', edges )
 
     bounds = [ cv2.boundingRect(c) for c in filter(lambda x : len(x) > 5, cnts) ]
+    rectimg = np.zeros( fShape )
+    for b in bounds:
+        x, y, w, h = b
+        cv2.rectangle( rectimg, (x, y), (x+h,y+w) , 255, 2)
+    images_['bouding_box'] = rectimg
     return bounds
 
 def find_contours( img, **kwargs ):
@@ -255,10 +260,9 @@ def process_tiff_file( tiff_file, bbox = None ):
     for f in frames: summary += f
     images_['summary'] = to_grayscale( summary )
     
-    rectRois = get_rois( frames, window = 30 )
+    rectRois = get_rois( frames, window = c.n_frames)
     dfmat = df_by_f_data( rectRois, frames )
     images_['df_by_f'] = dfmat
-
 
 def plot_results( ):
     global images_
@@ -272,8 +276,8 @@ def plot_results( ):
     ax.set_title( 'Computed ROIs', fontsize = 10 )
 
     ax = plt.subplot(3, 2, 3)
-    ax.imshow( 0.5*images_['summary'] + images_['cell_clusters'] )
-    ax.set_title( 'Computed activity clusters from ROI.', fontsize = 10 )
+    ax.imshow( images_['summary'] + images_['bouding_box'] )
+    ax.set_title( 'Clusters for df/F', fontsize = 10 )
 
     ax = plt.subplot(3, 2, 4)
     ax.imshow( np.zeros( shape = images_['summary'].shape ))
@@ -281,7 +285,7 @@ def plot_results( ):
 
     ax = plt.subplot( 3, 1, 3, frameon=False ) 
     im = ax.imshow( images_['df_by_f'] )
-    ax.set_title( '100*df/F in cluster. Baseline, min() of vector' 
+    ax.set_title( '100*df/F in rectangle(cluster). Baseline, min() of vector' 
             , fontsize = 10
             )
     plt.colorbar( im, orientation = 'horizontal' )
@@ -301,7 +305,6 @@ def get_bounding_box( ):
     if w == -1: c2 = w
     else: c2 = c1 + w
     return (r1, c1, r2, c2)
-
 
 def main( ):
     init( )
