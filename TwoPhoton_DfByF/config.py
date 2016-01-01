@@ -32,7 +32,8 @@ _logger.addHandler(console)
 
 
 # Threshold value for canny edge detector.
-elow, ehigh = 150, 200 
+high_threhold = 254
+elow, ehigh = high_threhold/2.0, 250 
 
 # Min number of points in contours. Must be more than 5.
 min_points_in_contours = 4
@@ -44,7 +45,7 @@ n_frames = 30
 # Maximum area of neuron in um^2. This is used to reject contours. Upper limit
 # is 20 um diameter (312 um^2). For toime being, I am using 200 um as upper
 # limit on neuron area.
-max_neuron_area = 200 #314
+max_neuron_area = 200
 
 # Minimum area of patch which could be considered a neuron. (non-negative). In
 # case of doubt, make it zero.

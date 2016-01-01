@@ -22,24 +22,33 @@ import sys
 import glob
 import datetime
 import cv2
+import helper
 
 logger = logging.getLogger('')
 shape_ = None
 images_ = {}
 save_direc_ = None
-accepted_contours_ = []
 
 class Cell():
     def __init__(self, contour):
         self.contour = contour
         self.rectangle = cv2.boundingRect( contour )
-        self.area = cv2.contourArea( contour )
+        self.circle = cv2.minEnclosingCircle( contour )
+        self.area = cv2.contourArea( contour ) * (config.args_.pixal_size ** 2.0)
         if len(contour) > 5:
             self.geometry = cv2.fitEllipse( contour )
+            self.geometry_type = 'ellipse'
+            axis = self.geometry[1]
+            self.eccentricity = axis[0]/axis[1]
+            self.radius = sum(axis) / 2.0
         else:
             self.geometry = cv2.minEnclosingCircle( contour )
+            self.geometry_type = 'circle'
+            self.eccentricity = 1.0
+            self.radius = self.geometry[1]
+            
         self.center = self.geometry[0]
-        logging.info("A potential cell : %s" % self)
+        logging.debug("A potential cell : %s" % self)
 
     def __repr__(self):
         return "Center: %s, area: %s" % (self.center, self.area )
@@ -72,7 +81,11 @@ def to_grayscale( img ):
 
 def get_edges( frame ):
     cannyFrame = to_grayscale( frame )
-    edges = cv2.Canny( cannyFrame, config.elow, config.ehigh)
+    edges = cv2.Canny( cannyFrame
+            , config.elow, config.ehigh
+            , L2gradient = True
+            , apertureSize = 3 #  3 is default. 
+            )
     return edges
 
 def get_activity_vector( frames ):
@@ -145,9 +158,14 @@ def get_rois( frames, window):
             e = threshold_frame( f, nstd = 2)
             sumAll += e
         edges = get_edges( sumAll )
-        # save_image( 'edges_%s.png' % i, edges, title = 'edges at index %s' % i)
-        cellImg, ellipses = compute_cells( edges )
-        # save_image( 'cell_%s.png' % i, cellImg )
+
+        # merge_image = np.concatenate( (to_grayscale(sumAll), edges), axis=0)
+        # save_image( 'edges_%s.png' % i, merge_image)
+
+        #  Also creates a list of acceptable cells in each frame.
+        cellImg = compute_cells( edges )
+
+        ## save_image( 'cell_%s.png' % i, cellImg )
         roi += cellImg
         allEdges += edges 
 
@@ -157,28 +175,9 @@ def get_rois( frames, window):
     save_image( 'all_edges.png', allEdges, title = 'All edges')
     save_image( 'rois.png', roi )
 
-    # Get the final locations.
+    #  Use this to locate the clusters of cell in all frames. 
     cnts, cntImgs = find_contours( to_grayscale(roi), draw = True, fill = True)
-
-    # get rid of small contour 
-    cnts = filter( lambda c : cv2.contourArea(c) > 2, cnts)
-
-    # Create a potential cell from each contour
-    [ cells_.append( Cell(x) ) for x in cnts ]
-
-    edges = get_edges( cntImgs )
-    images_['cell_clusters'] = edges
-    save_image( 'cell_clusters.png', edges )
-
-    bounds = [ cv2.minEnclosingCircle(c) for c in filter(lambda x : len(x) > 5, cnts) ]
-
-    bndImg = np.zeros( shape_ )
-    for b in bounds:
-        (x, y), r = b
-        cv2.circle( bndImg, (int(x), int(y)), int(r) , 255, 1)
-    images_['bouding_box'] = bndImg
-
-    return bounds
+    images_['bound_area'] = get_edges( cntImgs )
 
 def find_contours( img, **kwargs ):
     logger.debug("find_contours with option: %s" % kwargs)
@@ -209,36 +208,30 @@ def find_contours( img, **kwargs ):
 
 def acceptable( contour ):
     """Various conditions under which a contour is not a cell """
-
-    global accepted_contours_
+    global cells_
     # First fit it with an ellipse
-    if len(contour) < 5:
+    cell = Cell( contour )
+    if cell.area < config.min_neuron_area:
+        logger.debug("Rejected contour because cell area was too low")
         return False
 
-    el  = cv2.fitEllipse( contour )
-    axis = el[1]
-    r = axis[0]/axis[1]
-    area = cv2.contourArea( contour ) * config.args_.pixal_size
-    if area > config.max_neuron_area:
+    if cell.area > config.max_neuron_area:
         logger.debug(
-                "Rejected contour %s because of its area=%s" % (contour, area)
+                "Rejected contour %s because of its area=%s" % (contour, cell.area)
             )
         return False
 
     # If the lower axis is 0.7 or more times of major axis, then aceept it.
-    if r < 0.7:
+    if cell.eccentricity < 0.7:
         msg = "Contour %s is rejected because " % contour
-        msg += "axis ration (%s) if too skewed" % r
+        msg += "axis ration (%s) of cell is too skewed" % cell.eccentricity
         logger.debug( msg )
         return False
 
-    accepted_contours_.append( contour )
+    cells_.append( cell )
     return True
 
 def compute_cells( image ):
-    # Since we are compute the call in a collection of few images, set the
-    # contours length to high.
-
     thresholdImg = threshold_frame( image, nstd = 3 )
     contourThres = config.min_points_in_contours
     contours, contourImg = find_contours(thresholdImg
@@ -252,13 +245,9 @@ def compute_cells( image ):
         if acceptable( c ):
             cv2.fillConvexPoly( img, c, 255)
 
-    # Now fetch the ellipses.
+    # Now fetch the contours from this image. 
     contours, contourImg = find_contours( img, draw = True, hull = True )
-    ellipses = []
-    for c in contours:
-        if len(c) < 5: continue 
-        ellipses.append( cv2.fitEllipse( c ) )
-    return contourImg, ellipses
+    return contourImg
 
 def df_by_f( roi, frames ):
     logger.info( "ROI: %s" % str(roi) )
@@ -288,44 +277,42 @@ def df_by_f_data( rois, frames ):
     logger.info('Wrote df/f data to %s' % outfile)
     return dfmat
 
-def merge_or_reject_rectangle( rects ):
+def merge_or_reject_cells( cells ):
     restult = []
-    cells, areas = [], []
-    for x in rects:
-        recArea = x[2] * x[3] * ( config.args_.pixal_size ** 2 )
-        cells.append( (recArea, x) )
-        areas.append( recArea )
+    coolcells, areas = [], []
 
     # sort according to area
-    cells = sorted( cells )
+    cells = sorted( cells, key = lambda x: x.area )
 
     # Get cells with with area in sweat range : 10 - 12 um diameter.
-    print np.mean( areas ), np.std( areas )
-    return rects
+    # keypoins = [ cv2.KeyPoint(c.center[0], c.center[1], c.radius ) for c in cells ]
+    cells = helper.remove_duplicates( cells )
+    return cells
 
 def get_roi_containing_minimum_cells( ):
     global images_
-    global accepted_contours_
     global shape_
 
     neuronImg = np.zeros( shape = shape_ )
-    rects = []
-    for contour in accepted_contours_:
+    coolcells = []
+    for cell in cells_:
         # If area of contour is too low, reject it.
-        area = cv2.contourArea( contour ) * config.args_.pixal_size
+        area = cell.area
         if area < config.min_neuron_area:
             continue
-        rects.append(cv2.boundingRect( contour ))
+        coolcells.append( cell )
 
     # Now we need reject some of these rectangles.
-    rects = merge_or_reject_rectangle( rects )
+    coolerCells = merge_or_reject_cells( coolcells )
 
-    for b in rects:
-        x, y, w, h = b
-        cv2.rectangle( neuronImg, (x, y), (x+h,y+w) , 255, 2)
-    
+    # Replace boxex with cells later.
+    boxes = []
+    for c in coolerCells:
+        (x, y), r = c.circle
+        cr = cv2.circle( neuronImg, (int(x), int(y)), int(r) , 255, 1)
+        boxes.append( c.rectangle )
     images_['neurons'] = neuronImg
-    return rects
+    return set(boxes)
 
 def process_tiff_file( tiff_file, bbox = None ):
     global save_direc_
@@ -373,7 +360,7 @@ def plot_results( ):
     ax.set_title( 'Computed ROIs', fontsize = 10 )
 
     ax = plt.subplot(3, 2, 3)
-    ax.imshow( images_['summary'] + images_['bouding_box'] )
+    ax.imshow( 0.99*images_['summary'] + images_['bound_area'] )
     ax.set_title( 'Clusters for df/F', fontsize = 10 )
 
     ax = plt.subplot(3, 2, 4)
