@@ -287,6 +287,10 @@ def merge_or_reject_cells( cells ):
     # Get cells with with area in sweat range : 10 - 12 um diameter.
     # keypoins = [ cv2.KeyPoint(c.center[0], c.center[1], c.radius ) for c in cells ]
     cells = helper.remove_duplicates( cells )
+
+    # Now remove all those cells which are inside another cells. They should be
+    # close enough in size.
+    cells = helper.remove_contained_cells( cells )
     return cells
 
 def get_roi_containing_minimum_cells( ):
