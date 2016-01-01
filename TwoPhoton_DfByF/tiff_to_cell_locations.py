@@ -369,7 +369,7 @@ def plot_results( ):
 
     ax = plt.subplot(3, 2, 4)
     ax.imshow( images_['neurons'] )
-    ax.set_title('TODO: maximum(Non-overlapping ROIs)', fontsize = 10)
+    ax.set_title('Maximal set of ROIs', fontsize = 10)
 
     ax = plt.subplot( 3, 1, 3, frameon=False ) 
     im = ax.imshow( images_['df_by_f'] )
