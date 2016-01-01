@@ -34,7 +34,7 @@ _logger.addHandler(console)
 # Threshold value for canny edge detector.
 elow, ehigh = 150, 200 
 
-# Min number of points in contours
+# Min number of points in contours. Must be more than 5.
 min_points_in_contours = 5
 
 # Time averaging over frames. Increase this number for motion correction. Larger

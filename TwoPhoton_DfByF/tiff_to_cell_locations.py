@@ -9,7 +9,7 @@ __maintainer__       = "Dilawar Singh"
 __email__            = "dilawars@ncbs.res.in"
 __status__           = "Development"
 
-import config as c
+import config 
 import logging
 from PIL import Image
 import numpy as np
@@ -29,7 +29,7 @@ save_direc_ = None
 
 def init( ):
     global save_direc_
-    save_direc_ = os.path.join( '.', '_results_%s' % os.path.split(c.args_.file)[1])
+    save_direc_ = os.path.join( '.', '_results_%s' % os.path.split(config.args_.file)[1])
     if os.path.isdir( save_direc_ ):
         return
         for f in glob.glob( '%s/*' % save_direc_ ):
@@ -53,7 +53,7 @@ def to_grayscale( img ):
 
 def get_edges( frame ):
     cannyFrame = to_grayscale( frame )
-    edges = cv2.Canny( cannyFrame, c.elow, c.ehigh)
+    edges = cv2.Canny( cannyFrame, config.elow, config.ehigh)
     return edges
 
 def get_activity_vector( frames ):
@@ -188,9 +188,10 @@ def compute_cells( image ):
     # contours length to high.
 
     thresholdImg = threshold_frame( image, nstd = 3 )
+    contourThres = config.min_points_in_contours
     contours, contourImg = find_contours(thresholdImg
             , draw = True
-            , filter = 8
+            , filter = contourThres
             , hull = True
             )
 
@@ -260,7 +261,7 @@ def process_tiff_file( tiff_file, bbox = None ):
     for f in frames: summary += f
     images_['summary'] = to_grayscale( summary )
     
-    rectRois = get_rois( frames, window = c.n_frames)
+    rectRois = get_rois( frames, window = config.n_frames)
     dfmat = df_by_f_data( rectRois, frames )
     images_['df_by_f'] = dfmat
 
@@ -291,13 +292,13 @@ def plot_results( ):
     plt.colorbar( im, orientation = 'horizontal' )
 
     stamp = datetime.datetime.now().isoformat()
-    plt.suptitle( '%s, %s' % (c.args_.file, stamp), fontsize = 8 )
+    plt.suptitle( '%s, %s' % (config.args_.file, stamp), fontsize = 8 )
 
-    logger.info('Saved results to %s' % c.args_.outfile)
-    plt.savefig( c.args_.outfile )
+    logger.info('Saved results to %s' % config.args_.outfile)
+    plt.savefig( config.args_.outfile )
 
 def get_bounding_box( ):
-    bbox = [ int(x) for x in c.args_.box.split(',') ]
+    bbox = [ int(x) for x in config.args_.box.split(',') ]
     r1, c1, h, w = bbox
 
     if h == -1: r2 = h
@@ -308,7 +309,7 @@ def get_bounding_box( ):
 
 def main( ):
     init( )
-    tiffFile = c.args_.file
+    tiffFile = config.args_.file
     bbox = get_bounding_box( )
     logger.info("== Bounding box: %s" % str(bbox))
     process_tiff_file( tiffFile, bbox = bbox )
@@ -334,6 +335,6 @@ if __name__ == '__main__':
             , type = str
             , help = 'result file (image)' 
             )
-    parser.parse_args(namespace=c.args_)
-    c.args_.outfile = c.args_.outfile or ('%s_out.png' % c.args_.file)
+    parser.parse_args(namespace=config.args_)
+    config.args_.outfile = config.args_.outfile or ('%s_out.png' % config.args_.file)
     main()
