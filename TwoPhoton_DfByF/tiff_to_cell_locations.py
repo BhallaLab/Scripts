@@ -20,6 +20,7 @@ import scipy.stats as stat
 import os
 import sys
 import glob
+import datetime
 import cv2
 
 logger = logging.getLogger('')
@@ -132,14 +133,14 @@ def get_rois( frames, window = 15):
     images_['all_edges'] = allEdges
     images_['rois'] = to_grayscale(roi)
 
-    save_figure( 'all_edges.png', allEdges, title = 'All edges')
-    save_figure( 'rois.png', roi )
+    # save_figure( 'all_edges.png', allEdges, title = 'All edges')
+    # save_figure( 'rois.png', roi )
 
     # Get the final locations.
     cnts, cntImgs = find_contours( to_grayscale(roi), draw = True, fill = True)
     edges = get_edges( cntImgs )
     images_['cell_clusters'] = edges
-    save_figure( 'cell_clusters.png', edges )
+    # save_figure( 'cell_clusters.png', edges )
 
     bounds = [ cv2.boundingRect(c) for c in filter(lambda x : len(x) > 5, cnts) ]
     return bounds
@@ -224,7 +225,7 @@ def df_by_f_data( rois, frames ):
     comment = 'Each column represents a ROI'
     comment += "\ni'th row is the values of ROIs in image senquence i"
     np.savetxt(outfile, dfmat.T, delimiter=',', header = comment)
-    save_figure( 'df_by_f.png', dfmat)
+    # save_figure( 'df_by_f.png', dfmat)
     logger.info('Wrote df/f data to %s' % outfile)
     return dfmat
 
@@ -286,7 +287,9 @@ def plot_images( outfile ):
     ax.set_title( 'df/F in cluster. total %s' % images_['df_by_f'].shape[0])
     fig.colorbar( im, orientation = 'horizontal' )
 
-    plt.tight_layout()
+    stamp = datetime.datetime.now().isoformat()
+    plt.suptitle( '%s, %s' % (c.args_.file, stamp), fontsize = 8 )
+
     # plt.show( )
     logger.info('Saved results to %s' % outfile)
     plt.savefig( outfile )
