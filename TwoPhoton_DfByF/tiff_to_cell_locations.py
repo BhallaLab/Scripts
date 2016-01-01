@@ -173,8 +173,8 @@ def get_rois( frames, window):
     images_['all_edges'] = allEdges
     images_['rois'] = to_grayscale(roi)
 
-    save_image( 'all_edges.png', allEdges, title = 'All edges')
-    save_image( 'rois.png', roi )
+    # save_image( 'all_edges.png', allEdges, title = 'All edges')
+    # save_image( 'rois.png', roi )
 
     #  Use this to locate the clusters of cell in all frames. 
     cnts, cntImgs = find_contours( to_grayscale(roi), draw = True, fill = True)
