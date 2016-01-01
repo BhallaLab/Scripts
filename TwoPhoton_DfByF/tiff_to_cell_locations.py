@@ -147,7 +147,7 @@ def get_rois( frames, window):
     # activityVec contains the indices where we see a local maxima of mean
     # activity e.g. most likely here we have a activity at its peak. Now we
     # collect few frames before and after it and do the rest.
-    logger.debug("Activity vector: %s" % activityVec )
+    # logger.debug("Activity vector: %s" % activityVec )
     allEdges = np.zeros( shape_ )
     roi = np.zeros( shape_ ) 
     for i in activityVec:
@@ -273,9 +273,9 @@ def df_by_f_data( rois, frames ):
     outfile = '%s/df_by_f.dat' % save_direc_
     comment = 'Each column represents a ROI'
     comment += "\ni'th row is the values of ROIs in image senquence i"
-    np.savetxt(outfile, dfmat.T, delimiter=',', header = comment)
+    # np.savetxt(outfile, dfmat.T, delimiter=',', header = comment)
     # save_image( 'df_by_f.png', dfmat)
-    logger.info('Wrote df/f data to %s' % outfile)
+    # logger.info('Wrote df/f data to %s' % outfile)
     return dfmat
 
 def merge_or_reject_cells( cells ):
