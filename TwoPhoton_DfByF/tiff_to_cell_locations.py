@@ -268,7 +268,7 @@ def plot_images( outfile ):
 
     ax = plt.subplot(3, 2, 1)
     ax.imshow( images_['summary'] )
-    ax.set_title( "Summary of activity in cell" )
+    ax.set_title( "Summary of activity in region" )
 
     ax = plt.subplot(3, 2, 2)
     ax.imshow(  images_['rois'] )
@@ -276,7 +276,7 @@ def plot_images( outfile ):
 
     ax = plt.subplot(3, 2, 3)
     ax.imshow( 0.5*images_['summary'] + images_['cell_clusters'] )
-    ax.set_title( 'Computed cell clusters from ROI.' )
+    ax.set_title( 'Computed activity clusters from ROI.' )
 
     ax = plt.subplot(3, 2, 4)
     ax.imshow( np.zeros( shape = images_['summary'].shape ))
