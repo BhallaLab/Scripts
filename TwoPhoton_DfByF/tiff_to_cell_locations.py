@@ -67,6 +67,7 @@ def init( ):
         os.makedirs( save_direc_ )
 
 def get_frame_data( frame ):
+    frame = frame.convert('L')
     img = np.array(frame)
     return img
 
@@ -84,7 +85,7 @@ def get_edges( frame ):
     edges = cv2.Canny( cannyFrame
             , config.elow, config.ehigh
             , L2gradient = True
-            , apertureSize = 3 #  3 is default. 
+            , apertureSize = config.canny_window_size
             )
     return edges
 
