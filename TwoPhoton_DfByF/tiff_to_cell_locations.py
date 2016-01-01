@@ -29,6 +29,23 @@ images_ = {}
 save_direc_ = None
 accepted_contours_ = []
 
+class Cell():
+    def __init__(self, contour):
+        self.contour = contour
+        self.rectangle = cv2.boundingRect( contour )
+        self.area = cv2.contourArea( contour )
+        if len(contour) > 5:
+            self.geometry = cv2.fitEllipse( contour )
+        else:
+            self.geometry = cv2.minEnclosingCircle( contour )
+        self.center = self.geometry[0]
+        logging.info("A potential cell : %s" % self)
+
+    def __repr__(self):
+        return "Center: %s, area: %s" % (self.center, self.area )
+
+cells_ = []
+
 def init( ):
     global save_direc_
     save_direc_ = os.path.join( '.', '_results_%s' % os.path.split(config.args_.file)[1])
@@ -142,16 +159,25 @@ def get_rois( frames, window):
 
     # Get the final locations.
     cnts, cntImgs = find_contours( to_grayscale(roi), draw = True, fill = True)
+
+    # get rid of small contour 
+    cnts = filter( lambda c : cv2.contourArea(c) > 2, cnts)
+
+    # Create a potential cell from each contour
+    [ cells_.append( Cell(x) ) for x in cnts ]
+
     edges = get_edges( cntImgs )
     images_['cell_clusters'] = edges
     save_image( 'cell_clusters.png', edges )
 
-    bounds = [ cv2.boundingRect(c) for c in filter(lambda x : len(x) > 5, cnts) ]
-    rectimg = np.zeros( shape_ )
+    bounds = [ cv2.minEnclosingCircle(c) for c in filter(lambda x : len(x) > 5, cnts) ]
+
+    bndImg = np.zeros( shape_ )
     for b in bounds:
-        x, y, w, h = b
-        cv2.rectangle( rectimg, (x, y), (x+h,y+w) , 255, 2)
-    images_['bouding_box'] = rectimg
+        (x, y), r = b
+        cv2.circle( bndImg, (int(x), int(y)), int(r) , 255, 1)
+    images_['bouding_box'] = bndImg
+
     return bounds
 
 def find_contours( img, **kwargs ):
@@ -179,7 +205,6 @@ def find_contours( img, **kwargs ):
     if kwargs.get('fill', False):
         for c in contours:
             cv2.fillConvexPoly( contourImg, c, 255 )
-
     return contours, contourImg
 
 def acceptable( contour ):
@@ -264,6 +289,18 @@ def df_by_f_data( rois, frames ):
     return dfmat
 
 def merge_or_reject_rectangle( rects ):
+    restult = []
+    cells, areas = [], []
+    for x in rects:
+        recArea = x[2] * x[3] * ( config.args_.pixal_size ** 2 )
+        cells.append( (recArea, x) )
+        areas.append( recArea )
+
+    # sort according to area
+    cells = sorted( cells )
+
+    # Get cells with with area in sweat range : 10 - 12 um diameter.
+    print np.mean( areas ), np.std( areas )
     return rects
 
 def get_roi_containing_minimum_cells( ):
@@ -274,6 +311,10 @@ def get_roi_containing_minimum_cells( ):
     neuronImg = np.zeros( shape = shape_ )
     rects = []
     for contour in accepted_contours_:
+        # If area of contour is too low, reject it.
+        area = cv2.contourArea( contour ) * config.args_.pixal_size
+        if area < config.min_neuron_area:
+            continue
         rects.append(cv2.boundingRect( contour ))
 
     # Now we need reject some of these rectangles.

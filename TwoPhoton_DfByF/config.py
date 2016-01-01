@@ -45,3 +45,7 @@ n_frames = 30
 # is 20 um diameter (312 um^2). For toime being, I am using 200 um as upper
 # limit on neuron area.
 max_neuron_area = 200 #314
+
+# Minimum area of patch which could be considered a neuron. (non-negative). In
+# case of doubt, make it zero.
+min_neuron_area = 5
