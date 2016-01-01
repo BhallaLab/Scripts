@@ -25,7 +25,6 @@ import cv2
 
 logger = logging.getLogger('')
 images_ = {}
-
 save_direc_ = None
 
 def init( ):
@@ -108,6 +107,8 @@ def write_ellipses( ellipses ):
 def get_rois( frames, window = 15):
     fShape = frames[0].shape
     activityVec = get_activity_vector( frames )
+    
+    images_['activity'] = np.array( activityVec )
 
     # activityVec contains the indices where we see a local maxima of mean
     # activity e.g. most likely here we have a activity at its peak. Now we
@@ -210,7 +211,7 @@ def df_by_f( roi, frames ):
         yvec.append( area.mean() )
 
     yvec = np.array(yvec, dtype=np.float)
-    df = yvec - yvec.mean()
+    df = yvec - yvec.min()
     return np.divide(100 * df, yvec) 
 
 def df_by_f_data( rois, frames ):
@@ -256,43 +257,40 @@ def process_tiff_file( tiff_file, bbox = None ):
     
     rectRois = get_rois( frames, window = 30 )
     dfmat = df_by_f_data( rectRois, frames )
-
     images_['df_by_f'] = dfmat
 
-    plot_images( outfile = '%s_result.png' % tiff_file )
 
-def plot_images( outfile ):
+def plot_results( ):
     global images_
-
-    fig, axes = plt.subplots(3, 2)
 
     ax = plt.subplot(3, 2, 1)
     ax.imshow( images_['summary'] )
-    ax.set_title( "Summary of activity in region" )
+    ax.set_title( "Summary of activity in region", fontsize = 10 )
 
     ax = plt.subplot(3, 2, 2)
     ax.imshow(  images_['rois'] )
-    ax.set_title( 'Computed ROIs' )
+    ax.set_title( 'Computed ROIs', fontsize = 10 )
 
     ax = plt.subplot(3, 2, 3)
     ax.imshow( 0.5*images_['summary'] + images_['cell_clusters'] )
-    ax.set_title( 'Computed activity clusters from ROI.' )
+    ax.set_title( 'Computed activity clusters from ROI.', fontsize = 10 )
 
     ax = plt.subplot(3, 2, 4)
     ax.imshow( np.zeros( shape = images_['summary'].shape ))
-    ax.set_title('TODO: Merge ROIs to find unique')
+    ax.set_title('TODO: maximum(Non-overlapping ROIs)', fontsize = 10)
 
-    ax = plt.subplot( 3, 1, 3, frameon=False ) #, projection = 'polar' )
-    im = ax.imshow( to_grayscale(images_['df_by_f']) )
-    ax.set_title( 'df/F in cluster. total %s' % images_['df_by_f'].shape[0])
-    fig.colorbar( im, orientation = 'horizontal' )
+    ax = plt.subplot( 3, 1, 3, frameon=False ) 
+    im = ax.imshow( images_['df_by_f'] )
+    ax.set_title( '100*df/F in cluster. Baseline, min() of vector' 
+            , fontsize = 10
+            )
+    plt.colorbar( im, orientation = 'horizontal' )
 
     stamp = datetime.datetime.now().isoformat()
     plt.suptitle( '%s, %s' % (c.args_.file, stamp), fontsize = 8 )
 
-    # plt.show( )
-    logger.info('Saved results to %s' % outfile)
-    plt.savefig( outfile )
+    logger.info('Saved results to %s' % c.args_.outfile)
+    plt.savefig( c.args_.outfile )
 
 def get_bounding_box( ):
     bbox = [ int(x) for x in c.args_.box.split(',') ]
@@ -311,6 +309,7 @@ def main( ):
     bbox = get_bounding_box( )
     logger.info("== Bounding box: %s" % str(bbox))
     process_tiff_file( tiffFile, bbox = bbox )
+    plot_results( )
 
 if __name__ == '__main__':
     import argparse
@@ -328,9 +327,10 @@ if __name__ == '__main__':
         )
     parser.add_argument('--outfile', '-o'
             , required = False
-            , default = None
+            , default = ""
+            , type = str
             , help = 'result file (image)' 
             )
     parser.parse_args(namespace=c.args_)
-    c.args_.outfile = c.args_.outfile or '%s_out.png' % c.args_.file
+    c.args_.outfile = c.args_.outfile or ('%s_out.png' % c.args_.file)
     main()
