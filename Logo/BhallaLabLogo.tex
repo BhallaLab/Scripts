@@ -21,18 +21,20 @@
 \usepackage{pgfplots}
 \usetikzlibrary{backgrounds}
 \usetikzlibrary{calc,shapes,positioning}
+\usetikzlibrary{lindenmayersystems}
 %\usepackage[sfdefault]{FiraSans}
 \usepackage[]{libertine}
 \begin{document}
 
+\edef\GRNBLK{green!60!black}
 % \UsbNeuron{name}{soma center}{rotate}
 \newcommand{\UsbNeuron}[3]{
     \begin{scope}[rotate=#3]
     \coordinate (#1) at #2;
-    \node[draw=green,circle,fill=green,inner sep=1pt] (#1_soma) at (#1) { };
-    \draw[-,thick,draw=green] (#1) -- ++(0,4mm);
-    \draw[-,draw=green] (#1) -- ++(0,1mm) -- ++(45:0.8mm) -- ++(90:1.5mm);
-    \draw[-,draw=green] (#1) -- ++(0,1.3mm) -- ++(135:0.8mm) -- ++(90:1.5mm);
+    \draw[-,draw=\GRNBLK] (#1) -- ++(0,10mm);
+    \draw[-,draw=\GRNBLK] (#1) -- ++(0,3mm) -- ++(45:2mm) -- ++(90:2.5mm);
+    \draw[-,draw=\GRNBLK] (#1) -- ++(0,5mm) -- ++(135:3mm) -- ++(90:2mm);
+    \node[draw=green,circle,fill=green,inner sep=1mm] (#1_soma) at (#1) { };
     \end{scope}
 }
 
@@ -43,13 +45,19 @@
     , background rectangle/.style={fill=black}
     , show background rectangle
 ]
+    \coordinate (nrn) at (0,0);
+    \begin{scope}[rotate=0,local bounding box=nrn2]
+        \draw [green!60!black] l-system
+        [ l-system = {rule set={F -> F[+F]F[-F]}
+            , randomize step percent=10
+            , randomize angle percent=30
+            , axiom=F, order=3, angle=30,step=2mm }
+        ];
+        \node[circle,fill=green,inner sep=1mm] (soma) { };
+    \end{scope}
 
-    \node[white,text width=\nodeW mm] (bha) at (0,0) {\LARGE Bha\hfill a};
-    \UsbNeuron{n1}{([shift=(-30:3.2mm)]bha.center)}{0}
-    \UsbNeuron{n2}{([xshift=1.2mm]n1)}{0}
-    %\UsbNeuron{n2}{([shift=(65:-3.5mm)]n1)}{180}
-
-    \node[text width=\nodeW mm] (lab) at (0,-0.5) {\LARGE \textcolor{white}{Lab}};
+    \node[white] (bha) [below=of nrn,yshift=-2mm,xshift=3mm] {\Huge Bhalla\textcolor{red}{Lab}};
+    \UsbNeuron{n1}{([]nrn.center)}{90}
     
 \end{tikzpicture}	
 
