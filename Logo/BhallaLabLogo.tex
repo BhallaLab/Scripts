@@ -21,6 +21,7 @@
 \usepackage{pgfplots}
 \usetikzlibrary{backgrounds}
 \usetikzlibrary{calc,shapes,positioning}
+\usetikzlibrary{decorations.text}
 \usetikzlibrary{lindenmayersystems}
 %\usepackage[sfdefault]{FiraSans}
 \usepackage[]{libertine}
@@ -34,7 +35,7 @@
     \draw[-,draw=\GRNBLK] (#1) -- ++(0,10mm);
     \draw[-,draw=\GRNBLK] (#1) -- ++(0,3mm) -- ++(45:2mm) -- ++(90:2.5mm);
     \draw[-,draw=\GRNBLK] (#1) -- ++(0,5mm) -- ++(135:3mm) -- ++(90:2mm);
-    \node[draw=green,circle,fill=green,inner sep=1mm] (#1_soma) at (#1) { };
+    \node[draw=green,circle,fill=green,inner sep=1pt] (#1_soma) at (#1) { };
     \end{scope}
 }
 
@@ -46,18 +47,26 @@
     , show background rectangle
 ]
     \coordinate (nrn) at (0,0);
-    \begin{scope}[rotate=0,local bounding box=nrn2]
+    \begin{scope}[rotate=-90,local bounding box=nrn2]
         \draw [green!60!black] l-system
-        [ l-system = {rule set={F -> F[+F]F[-F]}
+        [ l-system = {rule set={F -> F[+F+F]F[-F-F]}
             , randomize step percent=10
             , randomize angle percent=30
-            , axiom=F, order=3, angle=30,step=2mm }
+            , axiom=F, order=3, angle=40,step=1mm }
         ];
-        \node[circle,fill=green,inner sep=1mm] (soma) { };
+        \node[circle,fill=green,inner sep=1pt] (soma) { };
     \end{scope}
 
-    \node[white] (bha) [below=of nrn,yshift=-2mm,xshift=3mm] {\Huge Bhalla\textcolor{red}{Lab}};
-    \UsbNeuron{n1}{([]nrn.center)}{90}
+    %\path[draw,decorate, 
+    %    decoration={text along path,text = {\Huge Bhalla\textcolor{red}{Lab}}}
+    %    ] (1,1) arc [start angle=90, end angle=120];
+
+    \path [decorate,decoration={text along path
+            , text = {|\Huge\color{white}| Bhalla |\Huge\color{red}|Lab}
+            , text align={align=center}
+    }] ([shift=(-150:2cm)]nrn) arc (-150:-30:2cm);
+
+    %\UsbNeuron{n1}{([]nrn.center)}{90}
     
 \end{tikzpicture}	
 
