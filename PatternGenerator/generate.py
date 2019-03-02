@@ -14,7 +14,8 @@ import random
 import cv2
 import datetime
 
-def show_img(img, outfile, delay=100):
+def show_img(img, outfile, delay=10):
+    img = img.T
     cv2.imshow("Pattern", img)
     print(f"-> Saving to {outfile}")
     cv2.imwrite('%s'%outfile, img)
@@ -33,7 +34,10 @@ def main(**kwargs):
 
     # get the mean and save.
     sumI = np.sum(imgs, axis=0) 
-    cv2.imwrite( "average.png", sumI)
+    avgI = np.mean(imgs, axis=0)
+    avgI = avgI - avgI.min()
+    avgI = 255*avgI//avgI.max()
+    cv2.imwrite( "average.png", np.hstack((sumI,avgI)))
 
 def generate_pattern(i, **kwargs):
     shape = [int(x) for x in kwargs['ROI'].split('x')]
@@ -60,12 +64,12 @@ if __name__ == '__main__':
         , help = 'Size of ROI in pixels.'
         )
     parser.add_argument('--num-patterns', '-np'
-        , required = False, default=10, type=int
+        , required = False, default=100, type=int
         , help = 'Number of patterns to generate.'
         )
     g = parser.add_mutually_exclusive_group()
     g.add_argument('--num-rect', '-nr'
-        , required=False, default=20, type=int
+        , required=False, default=50, type=int
         , help = 'Number of rectangles to put on an image.'
         )
     g.add_argument('--loc', '-l'
