@@ -19,7 +19,8 @@ def show_img(img, outfile, delay=10):
     cv2.waitKey(delay)
 
 def main(**kwargs):
-    imgdir = pathlib.Path(datetime.datetime.now().isoformat())
+    imgdir = pathlib.Path(str(datetime.datetime.now().date()))
+    print( f"[INFO ] Saving to {imgdir}" )
     imgdir.mkdir(parents=True, exist_ok=True)
     kwargs['imgdir'] = imgdir
     random.seed(kwargs.get('seed', 2019))
