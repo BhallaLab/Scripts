@@ -15,9 +15,9 @@ import cv2
 import datetime
 
 def show_img(img, outfile, delay=100):
-    cv2.imshow("Pattern", img.T)
+    cv2.imshow("Pattern", img)
     print(f"-> Saving to {outfile}")
-    cv2.imwrite('%s'%outfile, img.T)
+    cv2.imwrite('%s'%outfile, img)
     cv2.waitKey(delay)
 
 def main(**kwargs):
@@ -26,8 +26,14 @@ def main(**kwargs):
     imgdir.mkdir(parents=True, exist_ok=True)
     kwargs['imgdir'] = imgdir
     random.seed(kwargs.get('seed', 2019))
+    imgs = []
     for i in range(kwargs['num_patterns']):
-        generate_pattern(i, **kwargs)
+        img = generate_pattern(i, **kwargs)
+        imgs.append(img)
+
+    # get the mean and save.
+    sumI = np.sum(imgs, axis=0) 
+    cv2.imwrite( "average.png", sumI)
 
 def generate_pattern(i, **kwargs):
     shape = [int(x) for x in kwargs['ROI'].split('x')]
@@ -35,12 +41,13 @@ def generate_pattern(i, **kwargs):
     rectSize = [int(x) for x in
     kwargs['size_pattern'].split('x')] 
     dx, dy = rectSize[0]//2, rectSize[1]//2
-    xs = random.sample(range(0, shape[0], rectSize[0]), nRect) 
-    ys = random.sample(range(0, shape[1], rectSize[1]), nRect) 
+    xs = random.sample(range(rectSize[0], shape[0]-rectSize[0], rectSize[0]), nRect) 
+    ys = random.sample(range(rectSize[1], shape[1]-rectSize[1], rectSize[1]), nRect) 
     img = np.zeros(shape=shape, dtype=np.uint8) # add rectangles.
     for x, y in zip(xs, ys):
-        cv2.rectangle(img, (x-dx,y-dy), (x+dx, y+dy), 255, -1)
+        cv2.rectangle(img, (y-dy,x-dx), (y+dy, x+dy), 255, -1)
     show_img(img, kwargs['imgdir']/f'{i:05d}.png')
+    return img
 
 
 if __name__ == '__main__':
