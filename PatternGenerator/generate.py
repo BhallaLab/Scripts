@@ -21,10 +21,22 @@ def show_img(img, outfile, delay=10):
     cv2.imwrite('%s'%outfile, img)
     cv2.waitKey(delay)
 
+def detectTrial(imgdir):
+    subdirs = [x.name for x in imgdir.iterdir() if x.is_dir()]
+    trials = [int(str(x).replace('Trial', '')) for x in subdirs if 'Trial' in str(x)]
+    print(trials)
+    if not trials:
+        trials = [0]
+    newTrial = "Trial%04d" % (1+max(trials))
+    return imgdir / newTrial
+
 def main(**kwargs):
-    imgdir = pathlib.Path(str(datetime.datetime.now().date()))
-    print( f"[INFO ] Saving to {imgdir}" )
+    basedir = pathlib.Path(str(datetime.datetime.now().date()))
+    basedir.mkdir(parents=True, exist_ok=True)
+    imgdir = detectTrial(basedir)
     imgdir.mkdir(parents=True, exist_ok=True)
+    print( f"[INFO ] Saving to {imgdir}" )
+
     kwargs['imgdir'] = imgdir
     random.seed(kwargs.get('seed', 2019))
     imgs = []
