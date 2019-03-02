@@ -14,8 +14,10 @@ import random
 import cv2
 import datetime
 
-def show_img(img, outfile, delay=10):
+def show_img(img, outfile, delay=100):
     cv2.imshow("Pattern", img.T)
+    print(f"-> Saving to {outfile}")
+    cv2.imwrite('%s'%outfile, img.T)
     cv2.waitKey(delay)
 
 def main(**kwargs):
