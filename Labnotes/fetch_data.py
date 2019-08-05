@@ -9,33 +9,6 @@ args = Args()
 
 def page_url(baseUrl, page):
     return baseUrl + f'?page={page}'
-
-def process(u, br):
-    global args
-    print( f"[INFO ] Analysing {u.text}" )
-    url = args.url  + u.attrs['href']
-
-    # First go to this url.
-    r = br.open(url)
-    if not r.ok:
-        print( f"[WARN ] Could not open labnote for {url}" )
-    
-    # Find the last page for this user.
-    html = br.get_current_page()
-    lastPage = html.find('a', title='Go to last page')
-    if not lastPage:
-        lastPage = 1
-    else:
-        m = re.search(r'page\=(\d+)', lastPage.attrs['href'])
-        lastPage = int(m.group(1))
-
-    pageUrls = [ page_url(url, i) for i in range(1,1+lastPage)]
-    for url in pageUrls:
-        br.open(url)
-        page = br.get_current_page()
-        print(page)
-        break
-    
 def process_page(baseurl, i, br):
     url = baseurl + f'&page={i}'
     # open the url and apge
@@ -50,7 +23,7 @@ def process_page(baseurl, i, br):
         tds = [x.text.strip() for x in tds]
         if len(tds) == 3:
             res.append(tds)
-    print(res)
+    print( f" + Found {len(res)} labnotes." )
     return res
 
 
@@ -80,12 +53,12 @@ def main():
     print( f"[INFO ] Last page is {lastPage}" )
 
     data = []
-    for i in range(1, lastPage+1):
+    for i in range(0, lastPage+1):
         data += process_page(url, i, browser)
+
     with open('data.pickle', 'wb') as f:
         pickle.dump(data, f)
     print('all done')
-    
     
 
 if __name__ == '__main__':
