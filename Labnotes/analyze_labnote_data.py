@@ -16,16 +16,17 @@ import pickle
 import scipy.stats as stats
 from collections import Counter
 from datetime import datetime
+import pandas as pd
 
 def parse_date(date):
     date = date.split('to')[0].strip()
     return datetime.strptime(date, '%Y-%m-%d')
 
 def reformat(xs):
-    return [parse_date(xs[0])] + xs[1:]
+    xs[0] = xs[0].split('to')[0].strip()
+    return xs
 
-def plot(data):
-
+def plot_together(data):
     plt.figure(figsize=(10, 6))
     gridSize = (2, 2)
     ax1 = plt.subplot2grid( gridSize, (0,0), colspan = 1 )
@@ -95,14 +96,36 @@ def plot(data):
 
     plt.tight_layout()
     plt.savefig( f'results.png')
+    plt.close()
 
-    
+def plot_users(data):
+    # Average rate of users.
+    users = set([x[-1] for x in data])
+    boxes = []
+    print( f"[INFO ] Total users {len(users)}" )
+    X = []
+    for i, u in enumerate(users):
+        v = [x[0] for x in data if x[-1] == u]
+        v = sorted(v)
+        # if the latest labenote is less than a month old, ignore.
+        if (datetime.now() - v[-1]).days > 60:
+            print( f"[INFO ] User {u} is ignored." )
+            continue
+        X.append(u)
+        vdiff = [x.days for x in np.diff(v)]
+        boxes.append(vdiff)
+    ax4.boxplot(boxes, whis='range')
+    ax4.set_xticklabels(X, rotation=90)
+
 
 def main():
     with open('data.pickle', 'rb') as f:
         data = pickle.load(f)
-    data = [ reformat(x) for x in data]
-    plot(data)
+    data = [reformat(x) for x in data]
+    df = pd.DataFrame(data, columns=['date', 'title', 'user'])
+    df['date'] = pd.to_datetime(df['date'])
+    df.sort_values(by='date', inplace=True)
+    print(df)
 
 if __name__ == '__main__':
     main()
