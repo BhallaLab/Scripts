@@ -27,15 +27,16 @@ def reformat(xs):
     return xs
 
 def plot_together(df):
-    plt.figure(figsize=(10, 6))
-    gridSize = (2, 2)
+    plt.figure(figsize=(10, 10))
+    gridSize = (3, 2)
     ax1 = plt.subplot2grid( gridSize, (0,0), colspan = 1 )
     ax2 = plt.subplot2grid( gridSize, (0,1), colspan = 1 )
-    ax3 = plt.subplot2grid( gridSize, (1,0), colspan = 1 )
-    ax4 = plt.subplot2grid( gridSize, (1,1), colspan = 1 )
+    axt = plt.subplot2grid( gridSize, (1,0), colspan = 2 )
+    ax3 = plt.subplot2grid( gridSize, (2,0), colspan = 1 )
+    ax4 = plt.subplot2grid( gridSize, (2,1), colspan = 1 )
 
     # distribution by day.
-    data = df['date']
+    data = df['datetime']
     days = [int(x.strftime('%w')) for x in data]
     hist = Counter(days)
     xs = range(7)
@@ -52,6 +53,22 @@ def plot_together(df):
     ax1.set_xticklabels(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
             , fontsize=10
             )
+
+    # distribution by time.
+    hours = [int(x.strftime('%H')) for x in data]
+    hist = Counter(hours)
+    xs = range(24)
+    ys = [hist[x] for x in xs]
+    N = sum(ys)
+    ysn = [hist[x]/N for x in xs]
+    axt1 = axt.twinx()
+    axt1.plot(xs, ysn, '-o', color='red')
+    axt1.set_ylim(bottom=0)
+    axt1.set_ylabel('frac', fontsize='small')
+    axt.set_title('By time')
+    axt.bar(xs, ys)
+    axt.set_xticks(xs)
+    axt.set_xlabel( 'Hour')
 
     # distribution by month.
     temps = [20.8,22.9,25.5,27.1,26.9,24.4,23.3,23.4,23.2,23.1,21.8,20.7]
@@ -82,7 +99,7 @@ def plot_together(df):
     print( f"[INFO ] Total users {len(users)}" )
     X = []
     for i, u in enumerate(users):
-        v = df[df['user'] == u]['date']
+        v = df[df['user'] == u]['datetime']
         v = sorted(v)
         # if the latest labenote is less than a month old, ignore.
         if (datetime.now() - v[-1]).days > 60:
@@ -126,11 +143,20 @@ def plot_users(data):
 
 def main():
     with open('data.pickle', 'rb') as f:
-        data = pickle.load(f)
+        d = pickle.load(f)
+
+    data = []
+    for u, v in d.items():
+        for vv in v:
+            vv.insert(0, u)
+            vv[-1] = vv[-1].replace(' ', '')
+            data.append(vv)
+
     data = [reformat(x) for x in data]
-    df = pd.DataFrame(data, columns=['date', 'title', 'user'])
-    df['date'] = pd.to_datetime(df['date'])
-    df.sort_values(by='date', inplace=True)
+    df = pd.DataFrame(data, columns=['user', 'title', 'datetime'])
+    df = df.dropna()
+    df['datetime'] = pd.to_datetime(df['datetime'], format='%a,%d/%m/%Y-%H:%M')
+    df.sort_values(by='datetime', inplace=True)
     plot_together(df)
 
 if __name__ == '__main__':
