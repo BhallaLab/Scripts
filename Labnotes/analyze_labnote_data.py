@@ -26,7 +26,7 @@ def reformat(xs):
     xs[0] = xs[0].split('to')[0].strip()
     return xs
 
-def plot_together(data):
+def plot_together(df):
     plt.figure(figsize=(10, 6))
     gridSize = (2, 2)
     ax1 = plt.subplot2grid( gridSize, (0,0), colspan = 1 )
@@ -35,7 +35,8 @@ def plot_together(data):
     ax4 = plt.subplot2grid( gridSize, (1,1), colspan = 1 )
 
     # distribution by day.
-    days = [int(x[0].strftime('%w')) for x in data]
+    data = df['date']
+    days = [int(x.strftime('%w')) for x in data]
     hist = Counter(days)
     xs = range(7)
     ys = [hist[x] for x in xs]
@@ -54,7 +55,7 @@ def plot_together(data):
 
     # distribution by month.
     temps = [20.8,22.9,25.5,27.1,26.9,24.4,23.3,23.4,23.2,23.1,21.8,20.7]
-    months = [int(x[0].strftime('%m')) for x in data]
+    months = [int(x.strftime('%m')) for x in data]
     hist = Counter(months)
     xs = range(1, 13)
     ys = [hist.get(x, 0) for x in xs]
@@ -76,12 +77,12 @@ def plot_together(data):
     ax3.set_ylabel('#Labnotes')
 
     # Average rate of users.
-    users = set([x[-1] for x in data])
+    users = df['user'].unique()
     boxes = []
     print( f"[INFO ] Total users {len(users)}" )
     X = []
     for i, u in enumerate(users):
-        v = [x[0] for x in data if x[-1] == u]
+        v = df[df['user'] == u]['date']
         v = sorted(v)
         # if the latest labenote is less than a month old, ignore.
         if (datetime.now() - v[-1]).days > 60:
@@ -90,10 +91,15 @@ def plot_together(data):
         X.append(u)
         vdiff = [x.days for x in np.diff(v)]
         boxes.append(vdiff)
-    ax4.boxplot(boxes, whis='range')
-    ax4.set_xticklabels(X, rotation=90)
-
-
+    #  ax4.boxplot(boxes, whis='range')
+    Y = [np.mean(v) for v in boxes]
+    Yerr = [ np.std(v) for v in boxes]
+    ax4.errorbar(range(len(Y)), Y, yerr=Yerr, label='User')
+    ax4.axhline(np.mean(Y), color='red', label='Lab mean')
+    ax4.legend()
+    ax4.set_title( 'Inter Labnote Interval')
+    ax4.set_ylabel('Days')
+    #  ax4.set_xticklabels(X, rotation=90)
     plt.tight_layout()
     plt.savefig( f'results.png')
     plt.close()
@@ -125,7 +131,7 @@ def main():
     df = pd.DataFrame(data, columns=['date', 'title', 'user'])
     df['date'] = pd.to_datetime(df['date'])
     df.sort_values(by='date', inplace=True)
-    print(df)
+    plot_together(df)
 
 if __name__ == '__main__':
     main()
