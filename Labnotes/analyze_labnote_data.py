@@ -26,7 +26,7 @@ def reformat(xs):
     xs[0] = xs[0].split('to')[0].strip()
     return xs
 
-def plot_together(df):
+def plot_together(df, outfile):
     plt.figure(figsize=(12, 10))
     gridSize = (3, 2)
     ax1 = plt.subplot2grid( gridSize, (0,0), colspan = 1 )
@@ -53,9 +53,6 @@ def plot_together(df):
     ax1.set_xticklabels(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
             , fontsize=10
             )
-
-
-
 
     # distribution by time.
     hours = [int(x.strftime('%H')) for x in data]
@@ -119,34 +116,16 @@ def plot_together(df):
     Y = [np.mean(v) for v in boxes]
     Yerr = [ np.std(v) for v in boxes]
     ax4.errorbar(range(len(Y)), Y, yerr=Yerr, label='User')
-    ax4.axhline(np.mean(Y), color='red', label='Lab mean')
+    ili = np.mean(Y)
+    ax4.axhline(ili, color='red', label='Lab mean')
     ax4.legend()
-    ax4.set_title( 'e) Inter Labnote Interval')
+    ax4.set_title(f'e) Inter Labnote Interval. Mean={ili:.1f} day', fontsize=10)
     ax4.set_ylabel('Days')
 
-    #  ax4.set_xticklabels(X, rotation=90)
     plt.tight_layout()
-    plt.savefig( f'results.png')
+    plt.savefig(outfile)
+    print( f"[INFO ] Saved to {outfile}" )
     plt.close()
-
-def plot_users(data):
-    # Average rate of users.
-    users = set([x[-1] for x in data])
-    boxes = []
-    print( f"[INFO ] Total users {len(users)}" )
-    X = []
-    for i, u in enumerate(users):
-        v = [x[0] for x in data if x[-1] == u]
-        v = sorted(v)
-        # if the latest labenote is less than a month old, ignore.
-        if (datetime.now() - v[-1]).days > 60:
-            print( f"[INFO ] User {u} is ignored." )
-            continue
-        X.append(u)
-        vdiff = [x.days for x in np.diff(v)]
-        boxes.append(vdiff)
-    ax4.boxplot(boxes, whis='range')
-    ax4.set_xticklabels(X, rotation=90)
 
 
 def main():
@@ -165,7 +144,13 @@ def main():
     df = df.dropna()
     df['datetime'] = pd.to_datetime(df['datetime'], format='%a,%d/%m/%Y-%H:%M')
     df.sort_values(by='datetime', inplace=True)
-    plot_together(df)
+    plot_together(df, 'all.png')
+
+    users = df['user'].unique()
+    for u in users:
+        d = df[df['user'] == u]
+        plot_together(d, f'{u}.png')
+        print( f"[INFO ] Done for user {u}" )
 
 if __name__ == '__main__':
     main()
