@@ -27,11 +27,11 @@ def reformat(xs):
     return xs
 
 def plot_together(df):
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(12, 10))
     gridSize = (3, 2)
     ax1 = plt.subplot2grid( gridSize, (0,0), colspan = 1 )
-    ax2 = plt.subplot2grid( gridSize, (0,1), colspan = 1 )
     axt = plt.subplot2grid( gridSize, (1,0), colspan = 2 )
+    ax2 = plt.subplot2grid( gridSize, (0,1), colspan = 1 )
     ax3 = plt.subplot2grid( gridSize, (2,0), colspan = 1 )
     ax4 = plt.subplot2grid( gridSize, (2,1), colspan = 1 )
 
@@ -47,12 +47,15 @@ def plot_together(df):
     ax11.plot(xs, ysn, '-o', color='red')
     ax11.set_ylim(bottom=0)
     ax11.set_ylabel('frac', fontsize='small')
-    ax1.set_title('By Day')
+    ax1.set_title('a) By Day')
     ax1.bar(xs, ys)
     ax1.set_xticks(xs)
     ax1.set_xticklabels(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
             , fontsize=10
             )
+
+
+
 
     # distribution by time.
     hours = [int(x.strftime('%H')) for x in data]
@@ -60,15 +63,20 @@ def plot_together(df):
     xs = range(24)
     ys = [hist[x] for x in xs]
     N = sum(ys)
-    ysn = [hist[x]/N for x in xs]
-    axt1 = axt.twinx()
-    axt1.plot(xs, ysn, '-o', color='red')
-    axt1.set_ylim(bottom=0)
-    axt1.set_ylabel('frac', fontsize='small')
-    axt.set_title('By time')
-    axt.bar(xs, ys)
+    axt.plot(xs, ys, label='Avg')
+    # day wise
+    for day in range(7):
+        print( f"[INFO ] Plotting for {day}" )
+        ddata = [ x for x in data if int(x.strftime('%w')) == day]
+        hours = [int(x.strftime('%H')) for x in ddata]
+        hist = Counter(hours)
+        xs = range(24)
+        ys = [hist[x] for x in xs]
+        axt.plot(xs, ys, marker=f'${day}$', lw=1, linestyle='--', alpha=0.6, label=f'Day {day}')
+    axt.set_title('c) By time')
     axt.set_xticks(xs)
     axt.set_xlabel( 'Hour')
+    axt.legend(loc='upper left', bbox_to_anchor=(1,1))
 
     # distribution by month.
     temps = [20.8,22.9,25.5,27.1,26.9,24.4,23.3,23.4,23.2,23.1,21.8,20.7]
@@ -78,18 +86,17 @@ def plot_together(df):
     ys = [hist.get(x, 0) for x in xs]
     ax2.bar(xs, ys)
     ax2.set_xticks(xs)
-    ax2.set_title('By Month')
+    ax2.set_title('b) By Month')
     ax22 = ax2.twinx()
-    ax22.plot(xs, temps, color='red')
+    ax22.plot(xs, temps, color='red', alpha=0.5)
     ax22.set_ylim(bottom=17)
     ax22.set_ylabel('Avg Temp of Bangalore')
-
     # correlation between temp and labnotes.
     slope, intercept, r_value, p_value, std_err = stats.linregress(temps, ys)
     line = slope*np.array(temps)+intercept
     ax3.scatter(temps, ys)
     ax3.plot(temps, line) 
-    ax3.set_title(f'p={p_value:.2g}, R-sqr={r_value**2:.2f}')
+    ax3.set_title(f'd) p={p_value:.2g}, R-sqr={r_value**2:.2f}')
     ax3.set_xlabel('Bangalore Avg Temp')
     ax3.set_ylabel('#Labnotes')
 
@@ -102,9 +109,9 @@ def plot_together(df):
         v = df[df['user'] == u]['datetime']
         v = sorted(v)
         # if the latest labenote is less than a month old, ignore.
-        if (datetime.now() - v[-1]).days > 60:
-            print( f"[INFO ] User {u} is ignored." )
-            continue
+        #  if (datetime.now() - v[-1]).days > 30:
+            #  print( f"[INFO ] User {u} is ignored." )
+            #  continue
         X.append(u)
         vdiff = [x.days for x in np.diff(v)]
         boxes.append(vdiff)
@@ -114,8 +121,9 @@ def plot_together(df):
     ax4.errorbar(range(len(Y)), Y, yerr=Yerr, label='User')
     ax4.axhline(np.mean(Y), color='red', label='Lab mean')
     ax4.legend()
-    ax4.set_title( 'Inter Labnote Interval')
+    ax4.set_title( 'e) Inter Labnote Interval')
     ax4.set_ylabel('Days')
+
     #  ax4.set_xticklabels(X, rotation=90)
     plt.tight_layout()
     plt.savefig( f'results.png')
